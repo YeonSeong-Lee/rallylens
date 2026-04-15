@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from yt_dlp import YoutubeDL
-from yt_dlp.utils import DownloadError
 
 from rallylens.common import (
     RAW_DIR,
@@ -15,6 +13,7 @@ from rallylens.common import (
     get_logger,
     video_id_from_url,
 )
+from rallylens.serialization import load_json, save_json
 
 _log = get_logger(__name__)
 
@@ -39,18 +38,13 @@ def _read_cached_meta(out_dir: Path, video_id: str) -> VideoMeta | None:
     if not (sidecar.exists() and video.exists()):
         return None
     try:
-        data = json.loads(sidecar.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        return load_json(sidecar, VideoMeta)
+    except (OSError, ValueError):
         return None
-    return VideoMeta.from_json_dict(data)
 
 
 def _write_sidecar(meta: VideoMeta) -> None:
-    path = _sidecar_path(meta.source_path.parent, meta.video_id)
-    path.write_text(
-        json.dumps(meta.to_json_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    save_json(meta, _sidecar_path(meta.source_path.parent, meta.video_id))
 
 
 def download_video(
@@ -84,10 +78,7 @@ def download_video(
 
     _log.info("downloading %s with format=%s", url, _FORMAT_SELECTOR)
     with YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(url, download=True)
-        except DownloadError:
-            raise
+        info = ydl.extract_info(url, download=True)
     if info is None:
         raise RuntimeError(f"yt-dlp returned no info for {url}")
 
