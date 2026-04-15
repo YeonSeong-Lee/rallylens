@@ -10,6 +10,7 @@ precision is garbage until fine-tuning completes.
 from __future__ import annotations
 
 import contextlib
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
