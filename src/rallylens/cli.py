@@ -31,7 +31,7 @@ from rallylens.pipeline import (
 )
 from rallylens.pipeline.io import homography_path, save_homography, save_player_detections
 from rallylens.preprocess.frame_sampler import sample_frames_from_rallies
-from rallylens.preprocess.rally_segmenter import load_manifest, segment_rallies
+from rallylens.preprocess.rally_segmenter import find_rally, load_manifest, segment_rallies
 from rallylens.vision.court_homography import (
     compute_homography,
     pick_points_interactive,
@@ -100,19 +100,11 @@ def sample_frames_cmd(video_id: str, per_clip: int, total: int) -> None:
 @click.option("--frame-idx", type=int, default=0, show_default=True)
 def calibrate_cmd(video_id: str, rally_index: int, frame_idx: int) -> None:
     """Interactive 4-click court homography calibration (Week 2)."""
-    rally_dir = RALLIES_DIR / video_id
-    manifest = load_manifest(rally_dir)
-    if not manifest:
-        raise click.ClickException(
-            f"no rallies.json in {rally_dir}; run `segment` first"
-        )
-    target = next((c for c in manifest if c.index == rally_index), None)
-    if target is None:
-        raise click.ClickException(f"rally {rally_index} not found")
-
+    manifest = load_manifest(RALLIES_DIR / video_id)
     try:
+        target = find_rally(manifest, rally_index)
         frame = read_frame_at(target.path, frame_idx)
-    except (FileNotFoundError, RuntimeError) as exc:
+    except (LookupError, FileNotFoundError, RuntimeError) as exc:
         raise click.ClickException(str(exc)) from exc
 
     import cv2  # local import — only needed for imwrite below
@@ -144,17 +136,11 @@ def detect_cmd(
     video_id: str, rally_index: int, tracker: str, with_shuttle: bool
 ) -> None:
     """Run player pose + optional shuttle tracking on a cached rally."""
-    rally_dir = RALLIES_DIR / video_id
-    manifest = load_manifest(rally_dir)
-    if not manifest:
-        raise click.ClickException(
-            f"no rallies.json in {rally_dir}; run `segment` first"
-        )
-    target = next((c for c in manifest if c.index == rally_index), None)
-    if target is None:
-        raise click.ClickException(
-            f"rally index {rally_index} not found (available: {[c.index for c in manifest]})"
-        )
+    manifest = load_manifest(RALLIES_DIR / video_id)
+    try:
+        target = find_rally(manifest, rally_index)
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
     player_detections = detect_and_track_players(target.path, tracker=tracker_arg)
@@ -228,11 +214,11 @@ def report_cmd(video_id: str) -> None:
 @click.option("--max-reviews", type=int, default=40, show_default=True)
 def label_qa_cmd(video_id: str, rally_index: int, max_reviews: int) -> None:
     """Claude-reviewed shuttle label QA (Week 3). Flags suspicious predictions to JSONL."""
-    rally_dir = RALLIES_DIR / video_id
-    manifest = load_manifest(rally_dir)
-    target = next((c for c in manifest if c.index == rally_index), None)
-    if target is None:
-        raise click.ClickException(f"rally {rally_index} not found")
+    manifest = load_manifest(RALLIES_DIR / video_id)
+    try:
+        target = find_rally(manifest, rally_index)
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     detections = detect_shuttlecocks(target.path)
     if not detections:

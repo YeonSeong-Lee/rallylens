@@ -291,7 +291,7 @@ def test_report_cmd_happy_path_with_stubbed_claude(
 def test_label_qa_cmd_missing_rally_index(runner: CliRunner, video_id: str):
     result = runner.invoke(cli, ["label-qa", video_id])
     assert result.exit_code != 0
-    assert "not found" in result.output
+    assert "rallies.json" in result.output
 
 
 # ---------------------------------------------------------------------------

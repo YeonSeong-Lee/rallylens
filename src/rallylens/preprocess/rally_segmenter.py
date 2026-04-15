@@ -137,3 +137,18 @@ def load_manifest(out_dir: Path) -> list[RallyClip]:
     if not manifest_path.exists():
         return []
     return _RALLY_CLIP_LIST.validate_json(manifest_path.read_text(encoding="utf-8"))
+
+
+def find_rally(manifest: list[RallyClip], rally_index: int) -> RallyClip:
+    """Return the clip with the given index, or raise LookupError.
+
+    The raised message lists the available indices so CLI callers can surface
+    a helpful error without rebuilding that string themselves.
+    """
+    if not manifest:
+        raise LookupError("no rallies.json; run `segment` first")
+    for clip in manifest:
+        if clip.index == rally_index:
+            return clip
+    available = [c.index for c in manifest]
+    raise LookupError(f"rally {rally_index} not found (available: {available})")

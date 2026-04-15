@@ -136,6 +136,7 @@
 - [x] `src/rallylens/cli.py` — click 기반 10개 서브커맨드
 - [x] `rallylens ingest/segment/sample-frames/calibrate/detect/events/heatmaps/report/label-qa/run`
 - [x] `pyproject.toml`의 `[project.scripts]`에 등록
+- [x] `find_rally()` 헬퍼 추출 — CLI 3개 커맨드의 중복 rally 조회 로직 단일화 (`preprocess/rally_segmenter.py`)
 - [ ] `uv run rallylens run <sample_url>` end-to-end 검증 (실 URL 필요)
 
 ### Week 3 산출물 체크
