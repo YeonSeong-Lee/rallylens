@@ -5,16 +5,17 @@
 
 Single-command end-to-end CLI for badminton match video analysis, built with YOLO11, Kalman tracking, and Claude.
 
-> **Status**: Active development (Phase 0 / 4). See [`TODO.md`](TODO.md) for the full roadmap.
+> **Status**: Active development (Phase 3 / 4 — Event detection + heatmaps + Claude match report + label QA agent). See [`TODO.md`](TODO.md) for the full roadmap.
 
 ## Quickstart (placeholder)
 
 ```bash
 git clone https://github.com/YeonSeong-Lee/rallylens
 cd rallylens
+brew install ffmpeg    # PySceneDetect splitter + GIF export prereq
 uv sync
-cp .env.example .env  # set ANTHROPIC_API_KEY
-# uv run rallylens run <url>  # available after Week 1
+cp .env.example .env   # ANTHROPIC_API_KEY only needed for Week 3+
+uv run rallylens run <youtube-url>
 ```
 
 ## License

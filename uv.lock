@@ -1596,6 +1596,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "click" },
+    { name = "matplotlib" },
     { name = "opencv-python" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -1615,6 +1616,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.95.0" },
     { name = "click", specifier = ">=8.3.2" },
+    { name = "matplotlib", specifier = ">=3.10.0" },
     { name = "opencv-python", specifier = ">=4.13.0.92" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "pyarrow", specifier = ">=23.0.1" },
