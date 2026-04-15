@@ -7,7 +7,6 @@ onto each frame of the source video and writes the result as an MP4.
 from __future__ import annotations
 
 import collections
-from collections import defaultdict
 from pathlib import Path
 
 import cv2
@@ -16,9 +15,12 @@ import numpy as np
 from rallylens.common import ensure_dir, read_video_properties
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
-from rallylens.viz._utils import draw_fading_trail, track_color
-
-_SHUTTLE_COLOR: tuple[int, int, int] = (0, 255, 255)  # yellow (BGR)
+from rallylens.viz._utils import (
+    SHUTTLE_COLOR,
+    draw_fading_trail,
+    group_detections_by_frame,
+    track_color,
+)
 
 # COCO-17 skeleton connections (0-indexed keypoint pairs)
 _COCO_SKELETON: list[tuple[int, int]] = [
@@ -78,7 +80,7 @@ def _draw_shuttle_trail(
     draw_fading_trail(
         frame,
         [(pt.x, pt.y) for pt in trail],
-        color=_SHUTTLE_COLOR,
+        color=SHUTTLE_COLOR,
         head_radius=8,
     )
 
@@ -109,10 +111,7 @@ def render_overlay_video(
         (props.width, props.height),
     )
 
-    detections_by_frame: dict[int, list[Detection]] = defaultdict(list)
-    for det in detections:
-        detections_by_frame[det.frame_idx].append(det)
-
+    detections_by_frame = group_detections_by_frame(detections)
     shuttle_by_frame: dict[int, ShuttlePoint] = {pt.frame_idx: pt for pt in shuttle_track}
 
     cap = cv2.VideoCapture(str(video_path))

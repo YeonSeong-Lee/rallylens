@@ -209,7 +209,6 @@ def viz_cmd(
 
     detections = load_player_detections(video_id, video_id)
     shuttle_track = load_shuttle_track(video_id, video_id)
-    props = read_video_properties(video_path)
 
     if overlay:
         out = render_overlay_video(
@@ -239,6 +238,7 @@ def viz_cmd(
             click.echo(f"heatmap:  {out}")
 
         if court:
+            props = read_video_properties(video_path)
             out = render_court_diagram(
                 detections,
                 shuttle_track,

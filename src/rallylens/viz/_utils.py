@@ -54,11 +54,24 @@ TRACK_COLORS: list[tuple[int, int, int]] = [
     (255, 255, 0),    # yellow
 ]
 
+# Shared shuttle highlight color (BGR: yellow)
+SHUTTLE_COLOR: tuple[int, int, int] = (0, 255, 255)
+
 
 def track_color(track_id: int | None) -> tuple[int, int, int]:
     if track_id is None:
         return (200, 200, 200)
     return TRACK_COLORS[track_id % len(TRACK_COLORS)]
+
+
+def group_detections_by_frame(
+    detections: Iterable[Detection],
+) -> dict[int, list[Detection]]:
+    """Group detections by their `frame_idx` for O(1) per-frame lookup."""
+    grouped: dict[int, list[Detection]] = defaultdict(list)
+    for det in detections:
+        grouped[det.frame_idx].append(det)
+    return grouped
 
 
 # ---------------------------------------------------------------------------
@@ -70,15 +83,16 @@ def draw_court_background() -> np.ndarray:
     """Return a (IMG_H, IMG_W, 3) BGR image of a standard badminton court."""
     img: np.ndarray = np.full((IMG_H, IMG_W, 3), (34, 85, 34), dtype=np.uint8)
     m = MARGIN
+    white = (255, 255, 255)
 
-    def hline(y: int, x1: int = 0, x2: int = COURT_W) -> None:
-        cv2.line(img, (m + x1, m + y), (m + x2, m + y), (255, 255, 255), 2)
+    def hline(y: int) -> None:
+        cv2.line(img, (m, m + y), (m + COURT_W, m + y), white, 2)
 
-    def vline(x: int, y1: int = 0, y2: int = COURT_H) -> None:
-        cv2.line(img, (m + x, m + y1), (m + x, m + y2), (255, 255, 255), 2)
+    def vline(x: int) -> None:
+        cv2.line(img, (m + x, m), (m + x, m + COURT_H), white, 2)
 
     # Outer doubles boundary
-    cv2.rectangle(img, (m, m), (m + COURT_W, m + COURT_H), (255, 255, 255), 2)
+    cv2.rectangle(img, (m, m), (m + COURT_W, m + COURT_H), white, 2)
     # Singles sidelines
     vline(_SINGLES_LEFT)
     vline(_SINGLES_RIGHT)
@@ -156,21 +170,10 @@ def foot_point_from_detection(
     Returns None if neither ankle keypoint meets the confidence threshold
     or the keypoint list is incomplete.
     """
-    if len(det.keypoints_xy) < 17:
+    foot = foot_pixel_from_detection(det, kp_conf_thresh)
+    if foot is None:
         return None
-    l_conf = det.keypoints_conf[15] if len(det.keypoints_conf) > 15 else 0.0
-    r_conf = det.keypoints_conf[16] if len(det.keypoints_conf) > 16 else 0.0
-    if l_conf > kp_conf_thresh and r_conf > kp_conf_thresh:
-        lx, ly = det.keypoints_xy[15]
-        rx, ry = det.keypoints_xy[16]
-        return project_point(H, (lx + rx) / 2, (ly + ry) / 2)
-    if l_conf > kp_conf_thresh:
-        kx, ky = det.keypoints_xy[15]
-        return project_point(H, kx, ky)
-    if r_conf > kp_conf_thresh:
-        kx, ky = det.keypoints_xy[16]
-        return project_point(H, kx, ky)
-    return None
+    return project_point(H, foot[0], foot[1])
 
 
 def extract_foot_positions(
@@ -301,9 +304,7 @@ def compute_shuttle_court_positions(
     if not shuttle_track or not detections:
         return {}
 
-    dets_by_frame: dict[int, list[Detection]] = defaultdict(list)
-    for det in detections:
-        dets_by_frame[det.frame_idx].append(det)
+    dets_by_frame = group_detections_by_frame(detections)
     shuttle_by_frame: dict[int, ShuttlePoint] = {sp.frame_idx: sp for sp in shuttle_track}
 
     # (frame_idx, wrist_ball_distance, event_point)

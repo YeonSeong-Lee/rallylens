@@ -21,6 +21,7 @@ from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
     IMG_H,
     IMG_W,
+    SHUTTLE_COLOR,
     build_heatmap_over_court,
     compute_homography,
     compute_shuttle_court_positions,
@@ -28,10 +29,9 @@ from rallylens.viz._utils import (
     draw_fading_trail,
     extract_foot_positions,
     foot_point_from_detection,
+    group_detections_by_frame,
     track_color,
 )
-
-_SHUTTLE_COLOR: tuple[int, int, int] = (0, 255, 255)  # yellow (BGR)
 
 __all__ = ["render_court_diagram"]
 
@@ -74,9 +74,7 @@ def render_court_diagram(
         blur_sigma=blur_sigma,
     )
 
-    dets_by_frame: dict[int, list[Detection]] = defaultdict(list)
-    for det in detections:
-        dets_by_frame[det.frame_idx].append(det)
+    dets_by_frame = group_detections_by_frame(detections)
 
     shuttle_court_positions = compute_shuttle_court_positions(
         detections, shuttle_track, H, kp_conf_thresh=kp_conf_thresh
@@ -152,11 +150,11 @@ def render_court_diagram(
                         )
 
             draw_fading_trail(
-                frame, shuttle_trail, color=_SHUTTLE_COLOR, head_radius=shuttle_radius
+                frame, shuttle_trail, color=SHUTTLE_COLOR, head_radius=shuttle_radius
             )
             if shuttle_trail:
                 sx, sy = shuttle_trail[-1]
-                cv2.circle(frame, (sx, sy), shuttle_radius, _SHUTTLE_COLOR, -1, cv2.LINE_AA)
+                cv2.circle(frame, (sx, sy), shuttle_radius, SHUTTLE_COLOR, -1, cv2.LINE_AA)
 
             emit(frame)
             emitted = True
