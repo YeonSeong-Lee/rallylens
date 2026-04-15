@@ -114,14 +114,15 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
     non_rect = dilation.copy()
     ranked = intersect_count[(-intersect_count)[:, 0].argsort()]
 
-    for i, line in enumerate(h_lines_p):
-        x1, y1, x2, y2 = line[0]
-        for p in range(min(8, n)):
-            if i == int(ranked[p][1]) and ranked[i][0] > 0:
-                mask = np.zeros((height + 2, width + 2), np.uint8)
-                cv2.floodFill(non_rect, mask, (x1, y1), 1)
-                mask = np.zeros((height + 2, width + 2), np.uint8)
-                cv2.floodFill(non_rect, mask, (x2, y2), 1)
+    for p in range(min(8, n)):
+        orig_idx = int(ranked[p][1])
+        # Preserve original (quirky) gating: look up ranked row at orig_idx slot.
+        if orig_idx >= n or ranked[orig_idx][0] <= 0:
+            continue
+        x1, y1, x2, y2 = h_lines_p[orig_idx][0]
+        for seed in ((x1, y1), (x2, y2)):
+            mask = np.zeros((height + 2, width + 2), np.uint8)
+            cv2.floodFill(non_rect, mask, seed, 1)
 
     dilation[non_rect == 255] = 0
     dilation[non_rect == 1] = 255

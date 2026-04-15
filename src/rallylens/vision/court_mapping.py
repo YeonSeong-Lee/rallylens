@@ -83,21 +83,21 @@ class CourtMapper:
 
     def __init__(self, corners: CourtCorners) -> None:
         src = np.float32([
-            list(corners.top_left),
-            list(corners.top_right),
-            list(corners.bottom_left),
-            list(corners.bottom_right),
+            corners.top_left,
+            corners.top_right,
+            corners.bottom_left,
+            corners.bottom_right,
         ])
-        dst = np.float32([list(_CTL), list(_CTR), list(_CBL), list(_CBR)])
+        dst = np.float32([_CTL, _CTR, _CBL, _CBR])
         self._M = cv2.getPerspectiveTransform(src, dst)
 
     # ------------------------------------------------------------------
 
     def to_court_px(self, point: tuple[float, float]) -> tuple[int, int]:
         """Map a pixel coordinate in the original frame to the top-down canvas."""
-        pts = np.float32([[list(point)]])
-        transformed = cv2.perspectiveTransform(pts, self._M)[0][0]
-        return int(transformed[0]), int(transformed[1])
+        pts = np.float32([[point]])
+        tx, ty = cv2.perspectiveTransform(pts, self._M)[0][0]
+        return int(tx), int(ty)
 
     def warp_frame(self, frame: np.ndarray) -> np.ndarray:
         """Warp the entire frame to the top-down view."""
