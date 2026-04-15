@@ -20,12 +20,10 @@ adjacent frames.
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from rallylens.common import get_logger
-from rallylens.serialization import load_jsonl, save_json, save_jsonl
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.kalman_tracker import ShuttleTrackPoint
 
@@ -185,18 +183,6 @@ def aggregate_rally_stats(
         bottom_side_shots=bottom,
         events=events,
     )
-
-
-def save_events_jsonl(events: list[HitEvent], path: Path) -> None:
-    save_jsonl(events, path)
-
-
-def load_events_jsonl(path: Path) -> list[HitEvent]:
-    return load_jsonl(path, HitEvent)
-
-
-def save_rally_stats(stats: RallyStats, path: Path) -> None:
-    save_json(stats, path)
 
 
 def player_side_counts(player_detections: list[Detection], frame_height: int) -> tuple[int, int]:

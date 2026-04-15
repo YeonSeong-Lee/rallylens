@@ -14,14 +14,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from math import sqrt
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 from rallylens.common import get_logger
-from rallylens.serialization import save_jsonl
 
 _log = get_logger(__name__)
 
@@ -224,5 +222,3 @@ def observations_from_detections(
     return out
 
 
-def save_track_jsonl(track: list[ShuttleTrackPoint], path: Path) -> None:
-    save_jsonl(track, path)

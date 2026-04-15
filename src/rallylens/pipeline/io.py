@@ -4,9 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rallylens.analysis.events import RallyStats
-from rallylens.common import DETECTIONS_DIR, EVENTS_DIR, TRACKS_DIR, VideoMeta
+from rallylens.analysis.events import HitEvent, RallyStats
+from rallylens.common import (
+    CALIBRATION_DIR,
+    DETECTIONS_DIR,
+    EVENTS_DIR,
+    TRACKS_DIR,
+    VideoMeta,
+)
 from rallylens.serialization import load_json, load_jsonl, save_json, save_jsonl
+from rallylens.vision.court_homography import CourtHomography
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.kalman_tracker import ShuttleTrackPoint
 
@@ -57,3 +64,46 @@ def load_all_stats(video_id: str) -> list[RallyStats]:
         load_json(stats_path, RallyStats)
         for stats_path in sorted(events_dir.glob("rally_*_stats.json"))
     ]
+
+
+# ---------------------------------------------------------------------------
+# Shuttle track persistence (was in vision/kalman_tracker.py)
+# ---------------------------------------------------------------------------
+
+
+def save_track_jsonl(track: list[ShuttleTrackPoint], path: Path) -> None:
+    save_jsonl(track, path)
+
+
+# ---------------------------------------------------------------------------
+# Event / stats persistence (was in analysis/events.py)
+# ---------------------------------------------------------------------------
+
+
+def save_events_jsonl(events: list[HitEvent], path: Path) -> None:
+    save_jsonl(events, path)
+
+
+def load_events_jsonl(path: Path) -> list[HitEvent]:
+    return load_jsonl(path, HitEvent)
+
+
+def save_rally_stats(stats: RallyStats, path: Path) -> None:
+    save_json(stats, path)
+
+
+# ---------------------------------------------------------------------------
+# Court homography persistence (was in vision/court_homography.py)
+# ---------------------------------------------------------------------------
+
+
+def homography_path(video_id: str) -> Path:
+    return CALIBRATION_DIR / video_id / "homography.json"
+
+
+def save_homography(h: CourtHomography, path: Path) -> None:
+    save_json(h, path)
+
+
+def load_homography(path: Path) -> CourtHomography:
+    return load_json(path, CourtHomography)

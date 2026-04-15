@@ -5,11 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from rallylens.common import TRACKS_DIR, ensure_dir, get_logger, read_video_properties
-from rallylens.pipeline.io import shuttle_track_path
+from rallylens.pipeline.io import save_track_jsonl, shuttle_track_path
 from rallylens.vision.kalman_tracker import (
     ShuttleTrackPoint,
     observations_from_detections,
-    save_track_jsonl,
     track_shuttle,
 )
 from rallylens.vision.shuttlecock_detector import detect_shuttlecocks, resolve_weights

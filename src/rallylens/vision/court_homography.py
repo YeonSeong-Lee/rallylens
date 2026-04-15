@@ -26,7 +26,6 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 from rallylens.common import get_logger
-from rallylens.serialization import load_json, save_json
 
 _log = get_logger(__name__)
 
@@ -84,14 +83,6 @@ def compute_homography(
         court_points_m=[tuple(p) for p in dst.tolist()],
         H=H,
     )
-
-
-def save_homography(h: CourtHomography, path: Path) -> None:
-    save_json(h, path)
-
-
-def load_homography(path: Path) -> CourtHomography:
-    return load_json(path, CourtHomography)
 
 
 def pick_points_interactive(frame_path: Path) -> list[tuple[float, float]]:

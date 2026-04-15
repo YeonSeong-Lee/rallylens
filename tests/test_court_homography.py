@@ -3,13 +3,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from rallylens.pipeline.io import load_homography, save_homography
 from rallylens.vision.court_homography import (
     COURT_CORNERS_M,
     COURT_LENGTH_M,
     SINGLES_WIDTH_M,
     compute_homography,
-    load_homography,
-    save_homography,
 )
 
 
