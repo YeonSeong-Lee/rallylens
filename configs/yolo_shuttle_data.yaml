@@ -1,0 +1,17 @@
+# YOLO dataset manifest for shuttlecock single-class fine-tuning.
+#
+# Expected layout (after Label Studio export -> YOLO format + 80/20 split):
+#   data/shuttle/images/train/*.jpg
+#   data/shuttle/images/val/*.jpg
+#   data/shuttle/labels/train/*.txt
+#   data/shuttle/labels/val/*.txt
+#
+# Each label file contains zero or more lines of: "0 cx cy w h" (normalized 0..1).
+
+path: ../data/shuttle
+train: images/train
+val: images/val
+
+nc: 1
+names:
+  0: shuttlecock
