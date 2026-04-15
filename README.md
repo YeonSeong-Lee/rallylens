@@ -74,6 +74,26 @@ uv run rallylens calibrate <video_path>
 
 옵션: `--samples 20` (코트 탐지에 사용할 프레임 수, 기본값: `20`)
 
+#### 5. 시각화
+
+```bash
+uv run rallylens viz <video_path>
+# 결과: data/viz/<video_stem>_overlay.mp4
+#       data/viz/<video_stem>_heatmap.png
+#       data/viz/<video_stem>_court.png
+```
+
+사전에 `detect`, `detect-shuttle`, `calibrate` 결과가 있어야 합니다.
+
+옵션:
+
+| 옵션 | 기본값 | 설명 |
+|------|--------|------|
+| `--overlay / --no-overlay` | `True` | 선수·셔틀콕 오버레이 영상(MP4) 생성 |
+| `--heatmap / --no-heatmap` | `True` | 선수·셔틀콕 위치 히트맵(PNG) 생성 |
+| `--court / --no-court` | `True` | 코트 탑뷰 궤적 다이어그램(PNG) 생성 |
+| `--trail-len <int>` | `30` | 셔틀콕 잔상 길이 (프레임 수) |
+
 ---
 
 ## 출력 디렉토리 구조
@@ -83,7 +103,8 @@ data/
 ├── raw/           # 다운로드 원본 영상
 ├── detections/    # 선수 추적 결과 JSONL
 ├── tracks/        # 셔틀콕 트랙 JSONL
-└── calibration/   # 코트 코너 JSON
+├── calibration/   # 코트 코너 JSON
+└── viz/           # 시각화 출력 (MP4, PNG)
 ```
 
 ---
