@@ -51,7 +51,7 @@ def test_download_video_calls_extract_info(monkeypatch: pytest.MonkeyPatch, tmp_
     assert meta.source_path == video_path
     assert meta.url == url
 
-    assert "height<=720" in captured_opts["format"]
+    assert "height<=1080" in captured_opts["format"]
     assert captured_opts["merge_output_format"] == "mp4"
     assert captured_opts["quiet"] is True
 

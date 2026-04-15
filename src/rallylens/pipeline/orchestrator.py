@@ -23,6 +23,8 @@ def run_full_pipeline(
     url_or_path: str,
     *,
     tracker: TrackerName = "bytetrack",
+    singles: bool = True,
+    imgsz: int = 1280,
 ) -> PipelineResult:
     """Run the player tracking pipeline for a URL or local video path.
 
@@ -37,6 +39,8 @@ def run_full_pipeline(
         video_path = meta.source_path
         video_id = meta.video_id
 
-    player_detections = detect_and_track_players(video_path, tracker=tracker)
+    player_detections = detect_and_track_players(
+        video_path, tracker=tracker, singles=singles, imgsz=imgsz
+    )
     out_path = save_player_detections(player_detections, video_id, video_path.stem)
     return PipelineResult(video_id=video_id, detections_path=out_path)

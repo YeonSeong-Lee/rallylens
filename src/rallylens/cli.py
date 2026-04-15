@@ -10,7 +10,12 @@ from rallylens import __version__
 from rallylens.common import get_logger, load_env
 from rallylens.domain.video import is_likely_youtube_url
 from rallylens.ingest.downloader import download_video, parse_time
-from rallylens.pipeline import run_court_detection, run_court_detection_interactive, run_full_pipeline, run_shuttle_pipeline
+from rallylens.pipeline import (
+    run_court_detection,
+    run_court_detection_interactive,
+    run_full_pipeline,
+    run_shuttle_pipeline,
+)
 from rallylens.pipeline.io import court_corners_path, save_player_detections, shuttle_track_path
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
 
@@ -65,10 +70,25 @@ def ingest_cmd(url: str, force: bool, start_time: str | None, end_time: str | No
     default="bytetrack",
     show_default=True,
 )
-def detect_cmd(video_path: Path, tracker: str) -> None:
+@click.option(
+    "--singles/--no-singles",
+    default=True,
+    show_default=True,
+    help="Keep only the 2 most-stable track IDs (1v1 singles matches).",
+)
+@click.option(
+    "--imgsz",
+    type=int,
+    default=1280,
+    show_default=True,
+    help="YOLO inference image size (larger = better small-object recall).",
+)
+def detect_cmd(video_path: Path, tracker: str, singles: bool, imgsz: int) -> None:
     """Run player pose tracking on a video file."""
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
-    player_detections = detect_and_track_players(video_path, tracker=tracker_arg)
+    player_detections = detect_and_track_players(
+        video_path, tracker=tracker_arg, singles=singles, imgsz=imgsz
+    )
     out_path = save_player_detections(player_detections, video_path.stem, video_path.stem)
     click.echo(f"detections: {out_path}")
 
@@ -128,11 +148,24 @@ def calibrate_cmd(video_path: Path, samples: int, interactive: bool) -> None:
     default="bytetrack",
     show_default=True,
 )
-def run_cmd(url_or_path: str, tracker: str) -> None:
+@click.option(
+    "--singles/--no-singles",
+    default=True,
+    show_default=True,
+    help="Keep only the 2 most-stable track IDs (1v1 singles matches).",
+)
+@click.option(
+    "--imgsz",
+    type=int,
+    default=1280,
+    show_default=True,
+    help="YOLO inference image size.",
+)
+def run_cmd(url_or_path: str, tracker: str, singles: bool, imgsz: int) -> None:
     """Download (or use local file) and run player tracking on a full match video."""
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
     try:
-        result = run_full_pipeline(url_or_path, tracker=tracker_arg)
+        result = run_full_pipeline(url_or_path, tracker=tracker_arg, singles=singles, imgsz=imgsz)
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(f"detections saved for {result.video_id}: {result.detections_path}")

@@ -15,9 +15,9 @@ from rallylens.serialization import load_json, save_json
 _log = get_logger(__name__)
 
 _FORMAT_SELECTOR = (
-    "bv*[height<=720][fps<=30][ext=mp4]+ba[ext=m4a]/"
-    "b[height<=720][ext=mp4]/"
-    "b[height<=720]"
+    "bv*[height<=1080][fps<=60][ext=mp4]+ba[ext=m4a]/"
+    "b[height<=1080][ext=mp4]/"
+    "b[height<=1080]"
 )
 
 

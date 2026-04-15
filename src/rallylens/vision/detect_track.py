@@ -44,12 +44,33 @@ def _tracker_config_name(tracker: TrackerName) -> str | None:
     raise ValueError(f"unknown tracker: {tracker}")
 
 
+def select_two_players(detections: list[Detection]) -> list[Detection]:
+    """Post-processing: keep only the 2 most frame-frequent track IDs.
+
+    In a singles match the two players appear in nearly every frame, while
+    line judges, ball boys, and spectators appear only briefly.  Selecting
+    the top-2 by detection count reliably isolates the real players without
+    any court-geometry knowledge.
+
+    If fewer than 3 distinct IDs exist the list is returned unchanged.
+    """
+    from collections import Counter
+
+    counts = Counter(d.track_id for d in detections if d.track_id is not None)
+    if len(counts) <= 2:
+        return detections
+    top2 = {tid for tid, _ in counts.most_common(2)}
+    return [d for d in detections if d.track_id in top2]
+
+
 def detect_and_track_players(
     clip_path: Path,
-    weights: str = "yolo11n-pose.pt",
+    weights: str = "yolo11s-pose.pt",
     conf: float = 0.25,
-    max_det: int = 4,
+    imgsz: int = 1280,
+    max_det: int = 2,
     tracker: TrackerName = None,
+    singles: bool = True,
 ) -> list[Detection]:
     """Run YOLO11-pose on every frame; return flat list of per-frame detections.
 
@@ -58,6 +79,10 @@ def detect_and_track_players(
     which assigns stable `track_id`s to each detection via ultralytics' built-in
     ByteTrack implementation. Used to keep singles players' IDs consistent across
     missed detections.
+
+    When `singles=True` (default) and a tracker is active, `select_two_players()`
+    is applied as a final pass to discard any non-player tracks (judges, ball
+    boys) that leaked through despite `max_det=2`.
 
     First call downloads the weight file into MODELS_DIR, not the project root.
     """
@@ -73,16 +98,19 @@ def detect_and_track_players(
 
     tracker_cfg = _tracker_config_name(tracker)
     _log.info(
-        "running %s on %s (tracker=%s)",
+        "running %s on %s (imgsz=%d, tracker=%s, singles=%s)",
         weights,
         clip_path.name,
+        imgsz,
         tracker_cfg or "none",
+        singles,
     )
 
     common_kwargs = dict(
         source=str(clip_path),
         stream=True,
         conf=conf,
+        imgsz=imgsz,
         max_det=max_det,
         classes=[0],
         verbose=False,
@@ -139,10 +167,14 @@ def detect_and_track_players(
                 )
             )
 
+    if singles and tracker_cfg is not None:
+        detections = select_two_players(detections)
+
     _log.info(
-        "collected %d detections over %d frames (with_track_ids=%s)",
+        "collected %d detections over %d frames (with_track_ids=%s, singles=%s)",
         len(detections),
         frames_seen,
         tracker_cfg is not None,
+        singles,
     )
     return detections
