@@ -184,7 +184,7 @@ def _build_user_payload(
             "duration_s": video_meta.duration_s,
             "upload_date": video_meta.upload_date,
         },
-        "rallies": [r.to_json_dict() for r in rally_stats],
+        "rallies": [r.model_dump(mode="json") for r in rally_stats],
     }
 
 

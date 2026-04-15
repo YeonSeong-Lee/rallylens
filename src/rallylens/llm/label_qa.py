@@ -12,15 +12,14 @@ a high-signal deliverable.
 
 from __future__ import annotations
 
-import base64
 import json
 from pathlib import Path
 from typing import Any
 
 import anthropic
-import cv2
 
-from rallylens.common import ensure_dir, get_logger
+from rallylens.common import ensure_dir, get_logger, read_frame_at
+from rallylens.image_utils import crop_around_bbox, encode_jpeg_base64
 from rallylens.vision.shuttlecock_detector import ShuttleDetection
 
 _log = get_logger(__name__)
@@ -42,32 +41,6 @@ For each cropped frame you see, evaluate whether the red bounding box center act
 - The bbox is on a real shuttlecock but the box is much larger or smaller than the actual object
 
 You must reply ONLY with valid JSON matching the provided schema. No prose outside the JSON."""
-
-
-def _crop_around_bbox(frame: cv2.Mat, bbox: tuple[float, float, float, float]) -> cv2.Mat:
-    h, w = frame.shape[:2]
-    x1, y1, x2, y2 = bbox
-    cx = (x1 + x2) / 2
-    cy = (y1 + y2) / 2
-    half = max(x2 - x1, y2 - y1) / 2 + CROP_PADDING_PX
-    cx1 = int(max(0, cx - half))
-    cy1 = int(max(0, cy - half))
-    cx2 = int(min(w, cx + half))
-    cy2 = int(min(h, cy + half))
-    crop = frame[cy1:cy2, cx1:cx2].copy()
-    rel_x1 = int(x1 - cx1)
-    rel_y1 = int(y1 - cy1)
-    rel_x2 = int(x2 - cx1)
-    rel_y2 = int(y2 - cy1)
-    cv2.rectangle(crop, (rel_x1, rel_y1), (rel_x2, rel_y2), (0, 0, 255), 2)
-    return crop
-
-
-def _encode_jpeg_base64(image: cv2.Mat, quality: int = 85) -> str:
-    ok, buf = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-    if not ok:
-        raise RuntimeError("cv2.imencode failed")
-    return base64.standard_b64encode(buf.tobytes()).decode("ascii")
 
 
 def _label_schema() -> dict[str, Any]:
@@ -96,15 +69,9 @@ def review_detection(
     """Ask Claude to review a single detection. Returns a dict matching _label_schema."""
     client = client or anthropic.Anthropic()
 
-    cap = cv2.VideoCapture(str(clip_path))
-    cap.set(cv2.CAP_PROP_POS_FRAMES, detection.frame_idx)
-    ok, frame = cap.read()
-    cap.release()
-    if not ok or frame is None:
-        raise RuntimeError(f"could not read frame {detection.frame_idx} from {clip_path}")
-
-    crop = _crop_around_bbox(frame, detection.bbox_xyxy)
-    image_b64 = _encode_jpeg_base64(crop)
+    frame = read_frame_at(clip_path, detection.frame_idx)
+    crop = crop_around_bbox(frame, detection.bbox_xyxy, padding_px=CROP_PADDING_PX)
+    image_b64 = encode_jpeg_base64(crop)
 
     prompt = (
         f"Frame {detection.frame_idx} from {clip_path.name}. "
