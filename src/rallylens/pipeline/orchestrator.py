@@ -5,10 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from rallylens.common import ensure_dir, get_logger
-from rallylens.config import EVENTS_DIR
+from rallylens.common import get_logger
 from rallylens.ingest.downloader import download_video
-from rallylens.pipeline.io import save_player_detections, save_video_meta
+from rallylens.pipeline.io import save_player_detections
 from rallylens.vision.detect_track import TrackerName, detect_and_track_players
 
 _log = get_logger(__name__)
@@ -35,8 +34,6 @@ def run_full_pipeline(
         video_id = video_path.stem
     else:
         meta = download_video(url_or_path)
-        save_video_meta(meta)
-        ensure_dir(EVENTS_DIR / meta.video_id)
         video_path = meta.source_path
         video_id = meta.video_id
 
