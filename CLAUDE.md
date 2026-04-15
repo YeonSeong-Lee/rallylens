@@ -39,7 +39,7 @@ The codebase is layered so that each concern lives in exactly one place. When ex
 
 **`rallylens.serialization`** — generic pydantic ↔ JSON/JSONL helpers. All pipeline artifacts on disk are pydantic `BaseModel` instances, so persistence is a one-liner. Don't hand-roll JSON elsewhere.
 
-**`rallylens.pipeline.io`** — the single mapping from `(video_id, video_stem)` to artifact paths, and typed `save_*` / `load_*` functions for each artifact kind (player detections, shuttle tracks, court corners, viz outputs). When you add a new artifact type, add its path + load/save here, not in the caller.
+**`rallylens.pipeline.io`** — the single mapping from `video_id` to artifact paths, and typed `save_*` / `load_*` functions for each artifact kind (player detections, shuttle tracks, court corners, viz outputs). `video_id` is the input file stem (e.g. `abc_10s_20s` for a clipped download); each clip owns its own `data/<kind>/<video_id>/` directory. When you add a new artifact type, add its path + load/save here, not in the caller.
 
 **`rallylens.vision`** — the heavy CV layer. Each module owns one model and exports a pydantic result type:
 - `detect_track.py` → `Detection` (YOLO11-pose + optional ByteTrack via ultralytics). `select_two_players()` post-processes for singles matches by keeping the 2 most frame-frequent track IDs.
