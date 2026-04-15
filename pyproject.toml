@@ -1,7 +1,7 @@
 [project]
 name = "rallylens"
 version = "0.1.0"
-description = "RallyLens — automated badminton match analysis CLI pipeline (랠리 분할, 선수/셔틀콕 추적, Claude 리포트 생성)"
+description = "RallyLens — automated badminton player and shuttlecock tracking CLI pipeline"
 readme = "README.md"
 authors = [
     { name = "yeonseong", email = "yeonseong.dev@gmail.com" },
@@ -23,16 +23,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Recognition",
 ]
 dependencies = [
-    "anthropic>=0.95.0",
     "click>=8.3.2",
     "lapx>=0.9.4",
-    "matplotlib>=3.10.0",
     "opencv-python>=4.13.0.92",
-    "pandas>=3.0.2",
-    "pyarrow>=23.0.1",
     "pydantic>=2.0",
     "python-dotenv>=1.2.2",
-    "scenedetect>=0.6.7",
     "ultralytics>=8.4.37",
     "yt-dlp>=2026.3.17",
 ]
@@ -85,31 +80,16 @@ module = [
     "ultralytics.*",
     "cv2",
     "cv2.*",
-    "scenedetect",
-    "scenedetect.*",
     "yt_dlp",
     "yt_dlp.*",
-    "matplotlib",
-    "matplotlib.*",
-    "pandas",
-    "pandas.*",
-    "pyarrow",
-    "pyarrow.*",
     "dotenv",
 ]
 ignore_missing_imports = true
 
-# vision/detect_track, shuttlecock_detector, viz/overlay, analysis/heatmap
-# are tangled with ultralytics + cv2 + matplotlib which all have incomplete
-# type stubs. Keep strict mode everywhere else and let these modules trust
-# the runtime, with a module-scoped escape hatch.
+# vision/detect_track is tangled with ultralytics + cv2 which have incomplete
+# type stubs. Keep strict mode everywhere else.
 [[tool.mypy.overrides]]
-module = [
-    "rallylens.vision.detect_track",
-    "rallylens.vision.shuttlecock_detector",
-    "rallylens.viz.overlay",
-    "rallylens.analysis.heatmap",
-]
+module = ["rallylens.vision.detect_track"]
 disallow_untyped_calls = false
 warn_return_any = false
 disable_error_code = ["attr-defined", "arg-type", "union-attr", "name-defined"]
