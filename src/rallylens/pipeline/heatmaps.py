@@ -6,9 +6,10 @@ from pathlib import Path
 
 from rallylens.analysis.heatmap import render_heatmaps
 from rallylens.common import ensure_dir, get_logger, read_video_properties
-from rallylens.config import CALIBRATION_DIR, HEATMAPS_DIR, RALLIES_DIR
+from rallylens.config import HEATMAPS_DIR, RALLIES_DIR
 from rallylens.pipeline.io import (
     detections_path,
+    homography_path,
     load_all_stats,
     load_homography,
     load_player_detections,
@@ -87,8 +88,8 @@ def render_match_heatmaps(video_id: str) -> Path | None:
     for rally in rallies:
         all_shuttle.extend(load_shuttle_track(shuttle_track_path(video_id, rally.path.stem)))
 
-    homography_path = CALIBRATION_DIR / video_id / "homography.json"
-    homography = load_homography(homography_path) if homography_path.exists() else None
+    h_path = homography_path(video_id)
+    homography = load_homography(h_path) if h_path.exists() else None
 
     all_player_detections = _collect_player_detections(video_id, rallies)
 

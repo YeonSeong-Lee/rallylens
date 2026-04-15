@@ -24,7 +24,6 @@ import math
 from pydantic import BaseModel, ConfigDict, Field
 
 from rallylens.common import get_logger
-from rallylens.vision.detect_track import Detection
 from rallylens.vision.kalman_tracker import ShuttleTrackPoint
 
 _log = get_logger(__name__)
@@ -185,13 +184,3 @@ def aggregate_rally_stats(
     )
 
 
-def player_side_counts(player_detections: list[Detection], frame_height: int) -> tuple[int, int]:
-    """Convenience: count frames where each detected player was in top vs bottom half."""
-    top = bottom = 0
-    for d in player_detections:
-        cy = (d.bbox_xyxy[1] + d.bbox_xyxy[3]) / 2
-        if cy < frame_height * 0.5:
-            top += 1
-        else:
-            bottom += 1
-    return top, bottom

@@ -29,7 +29,7 @@ from rallylens.pipeline import (
     run_full_pipeline,
     run_shuttle_pipeline,
 )
-from rallylens.pipeline.io import save_homography, save_player_detections
+from rallylens.pipeline.io import homography_path, save_homography, save_player_detections
 from rallylens.preprocess.frame_sampler import sample_frames_from_rallies
 from rallylens.preprocess.rally_segmenter import load_manifest, segment_rallies
 from rallylens.vision.court_homography import (
@@ -121,7 +121,7 @@ def calibrate_cmd(video_id: str, rally_index: int, frame_idx: int) -> None:
     cv2.imwrite(str(frame_path), frame)
     points = pick_points_interactive(frame_path)
     homography = compute_homography(points)
-    out_path = CALIBRATION_DIR / video_id / "homography.json"
+    out_path = homography_path(video_id)
     save_homography(homography, out_path)
     click.echo(f"saved homography -> {out_path}")
 
