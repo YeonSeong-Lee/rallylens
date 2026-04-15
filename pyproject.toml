@@ -29,6 +29,7 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "pandas>=3.0.2",
     "pyarrow>=23.0.1",
+    "pydantic>=2.0",
     "python-dotenv>=1.2.2",
     "scenedetect>=0.6.7",
     "ultralytics>=8.4.37",
@@ -49,6 +50,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "mypy>=1.11",
     "pytest>=9.0.3",
     "ruff>=0.15.10",
 ]
@@ -69,3 +71,44 @@ indent-style = "space"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-q --strict-markers"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src/rallylens"]
+
+[[tool.mypy.overrides]]
+module = [
+    "ultralytics",
+    "ultralytics.*",
+    "cv2",
+    "cv2.*",
+    "scenedetect",
+    "scenedetect.*",
+    "yt_dlp",
+    "yt_dlp.*",
+    "matplotlib",
+    "matplotlib.*",
+    "pandas",
+    "pandas.*",
+    "pyarrow",
+    "pyarrow.*",
+    "dotenv",
+]
+ignore_missing_imports = true
+
+# vision/detect_track, shuttlecock_detector, viz/overlay, analysis/heatmap
+# are tangled with ultralytics + cv2 + matplotlib which all have incomplete
+# type stubs. Keep strict mode everywhere else and let these modules trust
+# the runtime, with a module-scoped escape hatch.
+[[tool.mypy.overrides]]
+module = [
+    "rallylens.vision.detect_track",
+    "rallylens.vision.shuttlecock_detector",
+    "rallylens.viz.overlay",
+    "rallylens.analysis.heatmap",
+]
+disallow_untyped_calls = false
+warn_return_any = false
+disable_error_code = ["attr-defined", "arg-type", "union-attr", "name-defined"]
