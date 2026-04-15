@@ -5,13 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from rallylens.analysis.events import HitEvent, RallyStats
-from rallylens.common import (
-    CALIBRATION_DIR,
-    DETECTIONS_DIR,
-    EVENTS_DIR,
-    TRACKS_DIR,
-    VideoMeta,
-)
+from rallylens.config import CALIBRATION_DIR, DETECTIONS_DIR, EVENTS_DIR, TRACKS_DIR
+from rallylens.domain.video import VideoMeta
 from rallylens.serialization import load_json, load_jsonl, save_json, save_jsonl
 from rallylens.vision.court_homography import CourtHomography
 from rallylens.vision.detect_track import Detection

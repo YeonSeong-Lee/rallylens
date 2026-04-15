@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from rallylens.analysis.events import HitEvent, RallyStats
-from rallylens.common import VideoMeta
+from rallylens.domain.video import VideoMeta
 from rallylens.preprocess.rally_segmenter import RallyClip
 from rallylens.serialization import load_json, load_jsonl, save_json, save_jsonl
 from rallylens.vision.court_homography import CourtHomography

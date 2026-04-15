@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from rallylens.analysis.events import HitEvent, RallyStats
-from rallylens.common import VideoMeta
+from rallylens.domain.video import VideoMeta
 from rallylens.llm.report_generator import (
     DEFAULT_MODEL,
     SYSTEM_PROMPT,

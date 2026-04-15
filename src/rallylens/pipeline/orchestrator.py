@@ -7,14 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rallylens.analysis.events import RallyStats
-from rallylens.common import (
-    OUTPUTS_DEMO_DIR,
-    OVERLAYS_DIR,
-    RALLIES_DIR,
-    REPORTS_DIR,
-    ensure_dir,
-    get_logger,
-)
+from rallylens.common import ensure_dir, get_logger
+from rallylens.config import OUTPUTS_DEMO_DIR, OVERLAYS_DIR, RALLIES_DIR, REPORTS_DIR
 from rallylens.ingest.downloader import download_video
 from rallylens.llm.report_generator import generate_match_report
 from rallylens.pipeline.events import run_events_pipeline

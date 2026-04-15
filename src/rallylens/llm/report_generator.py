@@ -27,7 +27,8 @@ from typing import Any
 import anthropic
 
 from rallylens.analysis.events import RallyStats
-from rallylens.common import VideoMeta, ensure_dir, get_logger
+from rallylens.common import ensure_dir, get_logger
+from rallylens.domain.video import VideoMeta
 
 _log = get_logger(__name__)
 

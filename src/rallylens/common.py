@@ -1,46 +1,25 @@
-"""Shared primitives used across ingest / preprocess / vision / viz."""
+"""Cross-cutting utilities: logging, environment, filesystem helpers, and video I/O.
+
+Intentionally small — each concern lives in its own module:
+  - Path constants  →  rallylens.config
+  - Domain models   →  rallylens.domain.video
+"""
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
-import re
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict
+
+from rallylens.config import PROJECT_ROOT
+from rallylens.domain.video import VideoProperties
 
 if TYPE_CHECKING:
     import numpy as np
-
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
-DATA_DIR: Path = PROJECT_ROOT / "data"
-RAW_DIR: Path = DATA_DIR / "raw"
-RALLIES_DIR: Path = DATA_DIR / "rallies"
-OVERLAYS_DIR: Path = DATA_DIR / "overlays"
-CALIBRATION_DIR: Path = DATA_DIR / "calibration"
-LABEL_FRAMES_DIR: Path = DATA_DIR / "label_frames"
-DETECTIONS_DIR: Path = DATA_DIR / "detections"
-TRACKS_DIR: Path = DATA_DIR / "tracks"
-EVENTS_DIR: Path = DATA_DIR / "events"
-REPORTS_DIR: Path = DATA_DIR / "reports"
-HEATMAPS_DIR: Path = DATA_DIR / "heatmaps"
-LABELQA_DIR: Path = DATA_DIR / "label_qa"
-MODELS_DIR: Path = PROJECT_ROOT / "models"
-OUTPUTS_DEMO_DIR: Path = PROJECT_ROOT / "outputs" / "demo"
-
-TARGET_HEIGHT: int = 720
-TARGET_FPS: int = 30
-
-_YOUTUBE_ID_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"[?&]v=([A-Za-z0-9_-]{11})"),
-    re.compile(r"youtu\.be/([A-Za-z0-9_-]{11})"),
-    re.compile(r"youtube\.com/shorts/([A-Za-z0-9_-]{11})"),
-    re.compile(r"youtube\.com/embed/([A-Za-z0-9_-]{11})"),
-)
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -66,44 +45,11 @@ def ensure_dir(p: Path) -> Path:
     return p
 
 
-def video_id_from_url(url: str) -> str:
-    for pattern in _YOUTUBE_ID_PATTERNS:
-        match = pattern.search(url)
-        if match:
-            return match.group(1)
-    return hashlib.sha1(url.encode("utf-8")).hexdigest()[:11]
-
-
-def is_likely_youtube_url(url: str) -> bool:
-    """Return True if `url` looks like a YouTube URL we know how to handle."""
-    return any(pattern.search(url) for pattern in _YOUTUBE_ID_PATTERNS)
-
-
 def require_ffmpeg() -> None:
     if shutil.which("ffmpeg") is None:
         raise RuntimeError(
             "ffmpeg not found on PATH. Install it first: `brew install ffmpeg` (macOS)."
         )
-
-
-class VideoMeta(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    video_id: str
-    title: str
-    upload_date: str | None
-    duration_s: float
-    url: str
-    source_path: Path
-
-
-class VideoProperties(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    fps: float
-    width: int
-    height: int
-    frame_count: int
 
 
 def read_video_properties(path: Path) -> VideoProperties:

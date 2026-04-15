@@ -16,7 +16,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from rallylens.common import MODELS_DIR, ensure_dir, get_logger
+from rallylens.common import ensure_dir, get_logger
+from rallylens.config import MODELS_DIR
 
 _log = get_logger(__name__)
 

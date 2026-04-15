@@ -5,14 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from rallylens.analysis.heatmap import render_heatmaps
-from rallylens.common import (
-    CALIBRATION_DIR,
-    HEATMAPS_DIR,
-    RALLIES_DIR,
-    ensure_dir,
-    get_logger,
-    read_video_properties,
-)
+from rallylens.common import ensure_dir, get_logger, read_video_properties
+from rallylens.config import CALIBRATION_DIR, HEATMAPS_DIR, RALLIES_DIR
 from rallylens.pipeline.io import (
     detections_path,
     load_all_stats,

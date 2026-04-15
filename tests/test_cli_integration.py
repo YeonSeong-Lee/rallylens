@@ -16,7 +16,7 @@ from click.testing import CliRunner
 
 from rallylens.analysis.events import HitEvent, RallyStats
 from rallylens.cli import cli
-from rallylens.common import VideoMeta, VideoProperties
+from rallylens.domain.video import VideoMeta, VideoProperties
 from rallylens.preprocess.rally_segmenter import RallyClip
 from rallylens.serialization import save_json, save_jsonl
 from rallylens.vision.kalman_tracker import ShuttleTrackPoint

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rallylens.common import TRACKS_DIR, ensure_dir, get_logger, read_video_properties
+from rallylens.common import ensure_dir, get_logger, read_video_properties
+from rallylens.config import TRACKS_DIR
 from rallylens.pipeline.io import save_track_jsonl, shuttle_track_path
 from rallylens.vision.kalman_tracker import (
     ShuttleTrackPoint,

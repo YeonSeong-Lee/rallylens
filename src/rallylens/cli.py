@@ -5,7 +5,8 @@ from __future__ import annotations
 import click
 
 from rallylens import __version__
-from rallylens.common import (
+from rallylens.common import ensure_dir, get_logger, load_env, read_frame_at
+from rallylens.config import (
     CALIBRATION_DIR,
     EVENTS_DIR,
     LABEL_FRAMES_DIR,
@@ -15,12 +16,8 @@ from rallylens.common import (
     RAW_DIR,
     REPORTS_DIR,
     TRACKS_DIR,
-    ensure_dir,
-    get_logger,
-    is_likely_youtube_url,
-    load_env,
-    read_frame_at,
 )
+from rallylens.domain.video import is_likely_youtube_url
 from rallylens.ingest.downloader import download_video
 from rallylens.llm.label_qa import review_detections
 from rallylens.llm.report_generator import generate_match_report

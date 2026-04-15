@@ -3,32 +3,43 @@ from pathlib import Path
 import pytest
 
 from rallylens import common
+from rallylens.domain.video import is_likely_youtube_url, video_id_from_url
 
 
 def test_video_id_from_url_watch():
     assert (
-        common.video_id_from_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s")
+        video_id_from_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s")
         == "dQw4w9WgXcQ"
     )
 
 
 def test_video_id_from_url_short():
-    assert common.video_id_from_url("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+    assert video_id_from_url("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
 
 def test_video_id_from_url_shorts():
     assert (
-        common.video_id_from_url("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+        video_id_from_url("https://www.youtube.com/shorts/dQw4w9WgXcQ")
         == "dQw4w9WgXcQ"
     )
 
 
 def test_video_id_from_url_fallback_is_deterministic():
     url = "https://example.com/not-a-youtube-url"
-    got = common.video_id_from_url(url)
+    got = video_id_from_url(url)
     assert len(got) == 11
-    assert got == common.video_id_from_url(url)
-    assert got != common.video_id_from_url("https://example.com/other")
+    assert got == video_id_from_url(url)
+    assert got != video_id_from_url("https://example.com/other")
+
+
+def test_is_likely_youtube_url_positive():
+    assert is_likely_youtube_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    assert is_likely_youtube_url("https://youtu.be/dQw4w9WgXcQ")
+    assert is_likely_youtube_url("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+
+
+def test_is_likely_youtube_url_negative():
+    assert not is_likely_youtube_url("https://example.com/video.mp4")
 
 
 def test_ensure_dir_idempotent(tmp_path: Path):

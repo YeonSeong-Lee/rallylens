@@ -7,7 +7,8 @@ from rallylens.analysis.events import (
     aggregate_rally_stats,
     detect_hit_events,
 )
-from rallylens.common import EVENTS_DIR, ensure_dir, get_logger, read_video_properties
+from rallylens.common import ensure_dir, get_logger, read_video_properties
+from rallylens.config import EVENTS_DIR
 from rallylens.pipeline.io import (
     load_shuttle_track,
     save_events_jsonl,

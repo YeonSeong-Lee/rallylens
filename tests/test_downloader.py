@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rallylens.common import VideoMeta
+from rallylens.domain.video import VideoMeta
 from rallylens.ingest import downloader
 
 

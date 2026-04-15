@@ -6,13 +6,9 @@ from pathlib import Path
 
 from yt_dlp import YoutubeDL
 
-from rallylens.common import (
-    RAW_DIR,
-    VideoMeta,
-    ensure_dir,
-    get_logger,
-    video_id_from_url,
-)
+from rallylens.common import ensure_dir, get_logger
+from rallylens.config import RAW_DIR
+from rallylens.domain.video import VideoMeta, video_id_from_url
 from rallylens.serialization import load_json, save_json
 
 _log = get_logger(__name__)
