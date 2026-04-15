@@ -20,9 +20,9 @@ from rallylens.viz._utils import (
     IMG_H,
     build_heatmap_over_court,
     compute_homography,
+    compute_shuttle_court_positions,
     draw_court_background,
     extract_foot_positions,
-    project_point,
 )
 
 __all__ = ["render_heatmap"]
@@ -48,7 +48,10 @@ def render_heatmap(
         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA,
     )
 
-    shuttle_positions = [project_point(H, float(sp.x), float(sp.y)) for sp in shuttle_track]
+    shuttle_court = compute_shuttle_court_positions(
+        detections, shuttle_track, H, kp_conf_thresh=kp_conf_thresh
+    )
+    shuttle_positions = list(shuttle_court.values())
     shuttle_panel = build_heatmap_over_court(court_bg, shuttle_positions, blur_sigma=blur_sigma)
     cv2.putText(
         shuttle_panel, "Shuttle", (10, 30),

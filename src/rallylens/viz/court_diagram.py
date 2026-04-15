@@ -23,11 +23,11 @@ from rallylens.viz._utils import (
     IMG_W,
     build_heatmap_over_court,
     compute_homography,
+    compute_shuttle_court_positions,
     draw_court_background,
     draw_fading_trail,
     extract_foot_positions,
     foot_point_from_detection,
-    project_point,
     track_color,
 )
 
@@ -77,7 +77,10 @@ def render_court_diagram(
     dets_by_frame: dict[int, list[Detection]] = defaultdict(list)
     for det in detections:
         dets_by_frame[det.frame_idx].append(det)
-    shuttle_by_frame: dict[int, ShuttlePoint] = {sp.frame_idx: sp for sp in shuttle_track}
+
+    shuttle_court_positions = compute_shuttle_court_positions(
+        detections, shuttle_track, H, kp_conf_thresh=kp_conf_thresh
+    )
 
     max_det_frame = max((det.frame_idx for det in detections), default=-1)
     max_shuttle_frame = max((sp.frame_idx for sp in shuttle_track), default=-1)
@@ -120,9 +123,9 @@ def render_court_diagram(
                     continue
                 player_trails[det.track_id].append(pt)
 
-            sp = shuttle_by_frame.get(fi)
-            if sp is not None:
-                shuttle_trail.append(project_point(H, float(sp.x), float(sp.y)))
+            pos = shuttle_court_positions.get(fi)
+            if pos is not None and 0 <= pos[0] < IMG_W and 0 <= pos[1] < IMG_H:
+                shuttle_trail.append(pos)
 
             if fi % stride != 0:
                 continue

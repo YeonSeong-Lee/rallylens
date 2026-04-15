@@ -7,6 +7,8 @@ thin.
 
 from __future__ import annotations
 
+import math
+from collections import defaultdict
 from collections.abc import Iterable
 
 import cv2
@@ -14,6 +16,7 @@ import numpy as np
 
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
+from rallylens.vision.shuttle_tracker import ShuttlePoint
 
 # ---------------------------------------------------------------------------
 # Court diagram constants (1 px = 1 cm)
@@ -127,7 +130,12 @@ def compute_homography(corners: CourtCorners) -> np.ndarray:
 
 
 def project_point(H: np.ndarray, px: float, py: float) -> tuple[int, int]:
-    """Project a single pixel coordinate into court diagram space."""
+    """Project a single pixel coordinate into court diagram space.
+
+    Only valid for pixels imaging points on the court floor plane. Applying
+    this to aerial points (e.g. a shuttlecock mid-flight) yields the point
+    where the camera ray hits the ground, not the shuttle's ground shadow.
+    """
     pt = np.array([[[px, py]]], dtype=np.float32)
     result = cv2.perspectiveTransform(pt, H)
     return (int(result[0, 0, 0]), int(result[0, 0, 1]))
@@ -177,6 +185,191 @@ def extract_foot_positions(
         if pt is not None:
             positions.append(pt)
     return positions
+
+
+# ---------------------------------------------------------------------------
+# Shuttle court-space projection (TRACE-style)
+# ---------------------------------------------------------------------------
+#
+# A flat ground-plane homography cannot correctly project aerial shuttle
+# pixels: the camera ray through a shuttle pixel intersects z=0 somewhere
+# past the shuttle's actual ground shadow. Following hgupt3/TRACE's
+# CourtDetection.py approach, we sidestep this by:
+#   1) Detecting "hit" events where the shuttle pixel is near a player's
+#      wrist keypoint (racket hand).
+#   2) For each hit event, composing the top-down coordinate as
+#        (project(ball).x, project(foot_midpoint).y)
+#      so the x axis tracks the shuttle's lateral position while the y
+#      axis is snapped to the known ground y of the striking player.
+#   3) Linearly interpolating between consecutive events to fill the
+#      intermediate frames — a reasonable approximation of a badminton
+#      shuttle's top-down trajectory, which is nearly straight between
+#      hits (the curved 3D arc projects close to a line on the ground).
+#
+# Reference: https://github.com/hgupt3/TRACE/blob/main/CourtDetection.py
+# (hit radius, linear interpolation) and CourtMapping.py (givePoint).
+
+# COCO-17 keypoint indices used here
+_KP_NOSE = 0
+_KP_L_WRIST = 9
+_KP_R_WRIST = 10
+_KP_L_ANKLE = 15
+_KP_R_ANKLE = 16
+
+
+def foot_pixel_from_detection(
+    det: Detection, kp_conf_thresh: float = 0.3
+) -> tuple[float, float] | None:
+    """Return the detection's foot midpoint in source-video pixel space.
+
+    Mirrors `foot_point_from_detection` but skips the homography so the
+    caller can combine this with raw shuttle pixels before projecting.
+    Returns None if neither ankle keypoint meets the confidence threshold.
+    """
+    if len(det.keypoints_xy) < 17:
+        return None
+    l_conf = det.keypoints_conf[_KP_L_ANKLE] if len(det.keypoints_conf) > _KP_L_ANKLE else 0.0
+    r_conf = det.keypoints_conf[_KP_R_ANKLE] if len(det.keypoints_conf) > _KP_R_ANKLE else 0.0
+    if l_conf > kp_conf_thresh and r_conf > kp_conf_thresh:
+        lx, ly = det.keypoints_xy[_KP_L_ANKLE]
+        rx, ry = det.keypoints_xy[_KP_R_ANKLE]
+        return ((lx + rx) / 2, (ly + ry) / 2)
+    if l_conf > kp_conf_thresh:
+        return det.keypoints_xy[_KP_L_ANKLE]
+    if r_conf > kp_conf_thresh:
+        return det.keypoints_xy[_KP_R_ANKLE]
+    return None
+
+
+def _best_wrist_pixel(
+    det: Detection, ball_xy: tuple[float, float], kp_conf_thresh: float
+) -> tuple[tuple[float, float], float] | None:
+    """Return the wrist keypoint closest to the ball and its distance in pixels."""
+    if len(det.keypoints_xy) <= _KP_R_WRIST:
+        return None
+    candidates: list[tuple[tuple[float, float], float]] = []
+    for idx in (_KP_L_WRIST, _KP_R_WRIST):
+        if len(det.keypoints_conf) <= idx:
+            continue
+        if det.keypoints_conf[idx] <= kp_conf_thresh:
+            continue
+        wx, wy = det.keypoints_xy[idx]
+        d = math.hypot(ball_xy[0] - wx, ball_xy[1] - wy)
+        candidates.append(((wx, wy), d))
+    if not candidates:
+        return None
+    return min(candidates, key=lambda c: c[1])
+
+
+def _nose_pixel(det: Detection, kp_conf_thresh: float) -> tuple[float, float] | None:
+    if len(det.keypoints_xy) <= _KP_NOSE or len(det.keypoints_conf) <= _KP_NOSE:
+        return None
+    if det.keypoints_conf[_KP_NOSE] <= kp_conf_thresh:
+        return None
+    return det.keypoints_xy[_KP_NOSE]
+
+
+def compute_shuttle_court_positions(
+    detections: list[Detection],
+    shuttle_track: list[ShuttlePoint],
+    H: np.ndarray,
+    *,
+    kp_conf_thresh: float = 0.3,
+    hit_radius_factor: float = 0.9,
+) -> dict[int, tuple[int, int]]:
+    """Compute per-frame top-down shuttle positions via TRACE's hit+interp trick.
+
+    Algorithm:
+      1. For each shuttle frame, find the player whose nearest wrist is
+         within `hit_radius_factor * body_length` of the ball. `body_length`
+         is the nose-to-foot-midpoint distance of that player, serving as a
+         camera-invariant proxy for racket reach.
+      2. Frames passing the check become "hit candidates" with candidate
+         position `(project(ball).x, project(foot_midpoint).y)`.
+      3. Consecutive candidate frames (gap <= 2) are grouped; within each
+         group the frame with the smallest wrist-to-ball distance is kept
+         as the canonical hit event. This collapses a multi-frame near-
+         contact into a single event.
+      4. Between consecutive hit events the top-down coordinate is filled
+         by linear interpolation so the trail draws cleanly.
+
+    Returns a dict mapping frame_idx -> (x, y) in court-diagram pixel space.
+    Empty dict if no hit events are detected (which, combined with an
+    empty `shuttle_track` or missing keypoints, leaves shuttle rendering
+    gracefully empty).
+    """
+    if not shuttle_track or not detections:
+        return {}
+
+    dets_by_frame: dict[int, list[Detection]] = defaultdict(list)
+    for det in detections:
+        dets_by_frame[det.frame_idx].append(det)
+    shuttle_by_frame: dict[int, ShuttlePoint] = {sp.frame_idx: sp for sp in shuttle_track}
+
+    # (frame_idx, wrist_ball_distance, event_point)
+    candidates: list[tuple[int, float, tuple[int, int]]] = []
+    for fi in sorted(shuttle_by_frame.keys()):
+        sp = shuttle_by_frame[fi]
+        ball_xy = (float(sp.x), float(sp.y))
+        best: tuple[float, tuple[int, int]] | None = None
+        for det in dets_by_frame.get(fi, []):
+            foot = foot_pixel_from_detection(det, kp_conf_thresh)
+            if foot is None:
+                continue
+            nose = _nose_pixel(det, kp_conf_thresh)
+            if nose is None:
+                continue
+            wrist_hit = _best_wrist_pixel(det, ball_xy, kp_conf_thresh)
+            if wrist_hit is None:
+                continue
+            _, wrist_dist = wrist_hit
+            body_len = math.hypot(foot[0] - nose[0], foot[1] - nose[1])
+            if body_len <= 0:
+                continue
+            radius = hit_radius_factor * body_len
+            if wrist_dist >= radius:
+                continue
+            ball_proj = project_point(H, ball_xy[0], ball_xy[1])
+            foot_proj = project_point(H, foot[0], foot[1])
+            event_pt = (ball_proj[0], foot_proj[1])
+            if best is None or wrist_dist < best[0]:
+                best = (wrist_dist, event_pt)
+        if best is not None:
+            candidates.append((fi, best[0], best[1]))
+
+    if not candidates:
+        return {}
+
+    # Collapse consecutive near-contact frames into a single canonical hit
+    hits: list[tuple[int, tuple[int, int]]] = []
+    group: list[tuple[int, float, tuple[int, int]]] = [candidates[0]]
+    for c in candidates[1:]:
+        if c[0] - group[-1][0] <= 2:
+            group.append(c)
+        else:
+            best_in_group = min(group, key=lambda x: x[1])
+            hits.append((best_in_group[0], best_in_group[2]))
+            group = [c]
+    best_in_group = min(group, key=lambda x: x[1])
+    hits.append((best_in_group[0], best_in_group[2]))
+
+    # Linearly interpolate between consecutive hit events
+    result: dict[int, tuple[int, int]] = {}
+    for i in range(len(hits) - 1):
+        t0, p0 = hits[i]
+        t1, p1 = hits[i + 1]
+        dt = t1 - t0
+        if dt <= 0:
+            result[t0] = p0
+            continue
+        for j in range(dt):
+            alpha = j / dt
+            x = int(round(p0[0] + alpha * (p1[0] - p0[0])))
+            y = int(round(p0[1] + alpha * (p1[1] - p0[1])))
+            result[t0 + j] = (x, y)
+    result[hits[-1][0]] = hits[-1][1]
+
+    return result
 
 
 # ---------------------------------------------------------------------------
