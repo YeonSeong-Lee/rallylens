@@ -7,6 +7,8 @@ thin.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import cv2
 import numpy as np
 
@@ -61,9 +63,9 @@ def track_color(track_id: int | None) -> tuple[int, int, int]:
 # ---------------------------------------------------------------------------
 
 
-def draw_court_background() -> np.ndarray:  # type: ignore[type-arg]
+def draw_court_background() -> np.ndarray:
     """Return a (IMG_H, IMG_W, 3) BGR image of a standard badminton court."""
-    img: np.ndarray = np.full((IMG_H, IMG_W, 3), (34, 85, 34), dtype=np.uint8)  # type: ignore[type-arg]
+    img: np.ndarray = np.full((IMG_H, IMG_W, 3), (34, 85, 34), dtype=np.uint8)
     m = MARGIN
 
     def hline(y: int, x1: int = 0, x2: int = COURT_W) -> None:
@@ -96,7 +98,7 @@ def draw_court_background() -> np.ndarray:  # type: ignore[type-arg]
 # ---------------------------------------------------------------------------
 
 
-def compute_homography(corners: CourtCorners) -> np.ndarray:  # type: ignore[type-arg]
+def compute_homography(corners: CourtCorners) -> np.ndarray:
     """Compute homography mapping video pixel corners to the court diagram."""
     src = np.array(
         [
@@ -121,10 +123,10 @@ def compute_homography(corners: CourtCorners) -> np.ndarray:  # type: ignore[typ
         raise RuntimeError(
             "could not compute homography from court corners — corners may be collinear"
         )
-    return H  # type: ignore[return-value]
+    return H
 
 
-def project_point(H: np.ndarray, px: float, py: float) -> tuple[int, int]:  # type: ignore[type-arg]
+def project_point(H: np.ndarray, px: float, py: float) -> tuple[int, int]:
     """Project a single pixel coordinate into court diagram space."""
     pt = np.array([[[px, py]]], dtype=np.float32)
     result = cv2.perspectiveTransform(pt, H)
@@ -136,26 +138,116 @@ def project_point(H: np.ndarray, px: float, py: float) -> tuple[int, int]:  # ty
 # ---------------------------------------------------------------------------
 
 
+def foot_point_from_detection(
+    det: Detection,
+    H: np.ndarray,
+    kp_conf_thresh: float = 0.3,
+) -> tuple[int, int] | None:
+    """Project a single detection's foot midpoint into court-diagram space.
+
+    Returns None if neither ankle keypoint meets the confidence threshold
+    or the keypoint list is incomplete.
+    """
+    if len(det.keypoints_xy) < 17:
+        return None
+    l_conf = det.keypoints_conf[15] if len(det.keypoints_conf) > 15 else 0.0
+    r_conf = det.keypoints_conf[16] if len(det.keypoints_conf) > 16 else 0.0
+    if l_conf > kp_conf_thresh and r_conf > kp_conf_thresh:
+        lx, ly = det.keypoints_xy[15]
+        rx, ry = det.keypoints_xy[16]
+        return project_point(H, (lx + rx) / 2, (ly + ry) / 2)
+    if l_conf > kp_conf_thresh:
+        kx, ky = det.keypoints_xy[15]
+        return project_point(H, kx, ky)
+    if r_conf > kp_conf_thresh:
+        kx, ky = det.keypoints_xy[16]
+        return project_point(H, kx, ky)
+    return None
+
+
 def extract_foot_positions(
     detections: list[Detection],
-    H: np.ndarray,  # type: ignore[type-arg]
+    H: np.ndarray,
     kp_conf_thresh: float = 0.3,
 ) -> list[tuple[int, int]]:
-    """Extract foot midpoints from detections and project to court diagram space."""
+    """Project every detection with valid feet into court-diagram space."""
     positions: list[tuple[int, int]] = []
     for det in detections:
-        if len(det.keypoints_xy) < 17:
-            continue
-        l_conf = det.keypoints_conf[15] if len(det.keypoints_conf) > 15 else 0.0
-        r_conf = det.keypoints_conf[16] if len(det.keypoints_conf) > 16 else 0.0
-        if l_conf > kp_conf_thresh and r_conf > kp_conf_thresh:
-            lx, ly = det.keypoints_xy[15]
-            rx, ry = det.keypoints_xy[16]
-            positions.append(project_point(H, (lx + rx) / 2, (ly + ry) / 2))
-        elif l_conf > kp_conf_thresh:
-            kx, ky = det.keypoints_xy[15]
-            positions.append(project_point(H, kx, ky))
-        elif r_conf > kp_conf_thresh:
-            kx, ky = det.keypoints_xy[16]
-            positions.append(project_point(H, kx, ky))
+        pt = foot_point_from_detection(det, H, kp_conf_thresh)
+        if pt is not None:
+            positions.append(pt)
     return positions
+
+
+# ---------------------------------------------------------------------------
+# Heatmap rendering
+# ---------------------------------------------------------------------------
+
+
+def build_heatmap_over_court(
+    court: np.ndarray,
+    positions: list[tuple[int, int]],
+    *,
+    blur_sigma: int = 12,
+    alpha_max: float = 0.75,
+) -> np.ndarray:
+    """Return a copy of `court` with a Gaussian-smoothed JET heatmap of `positions` blended on.
+
+    Positions outside the image bounds are silently skipped. If positions is
+    empty (or all out of bounds so the accumulated grid is zero) a plain copy
+    of `court` is returned.
+    """
+    if not positions:
+        return court.copy()
+
+    grid: np.ndarray = np.zeros((IMG_H, IMG_W), dtype=np.float32)
+    for x, y in positions:
+        if 0 <= x < IMG_W and 0 <= y < IMG_H:
+            grid[y, x] += 1.0
+
+    kernel_size = blur_sigma * 4 + 1
+    grid = cv2.GaussianBlur(grid, (kernel_size, kernel_size), blur_sigma)
+
+    max_val = float(grid.max())
+    if max_val == 0:
+        return court.copy()
+
+    normalized = (grid / max_val * 255).astype(np.uint8)
+    heatmap_rgb = cv2.applyColorMap(normalized, cv2.COLORMAP_JET)
+    alpha_map = (grid / max_val * alpha_max).astype(np.float32)[:, :, np.newaxis]
+    blended = (
+        court.astype(np.float32) * (1 - alpha_map)
+        + heatmap_rgb.astype(np.float32) * alpha_map
+    ).astype(np.uint8)
+    return blended
+
+
+# ---------------------------------------------------------------------------
+# Fading-trail rendering
+# ---------------------------------------------------------------------------
+
+
+def draw_fading_trail(
+    frame: np.ndarray,
+    points: Iterable[tuple[int, int]],
+    *,
+    color: tuple[int, int, int],
+    head_radius: int,
+) -> None:
+    """Draw a chronological point trail: newest point is largest + brightest.
+
+    Each point is rendered as a filled circle whose BGR channels and radius
+    scale linearly with its position in the trail, so older points fade toward
+    black and shrink. Works on any backdrop (plain court, heatmap, or raw
+    video frame) because it fades toward black instead of toward a fixed
+    background color.
+    """
+    pts = list(points)
+    n = len(pts)
+    if n == 0:
+        return
+    for i, pt in enumerate(pts):
+        alpha = (i + 1) / n
+        radius = max(2, int(head_radius * (0.4 + 0.6 * alpha)))
+        faded = (int(color[0] * alpha), int(color[1] * alpha), int(color[2] * alpha))
+        cv2.circle(frame, pt, radius, faded, -1, cv2.LINE_AA)

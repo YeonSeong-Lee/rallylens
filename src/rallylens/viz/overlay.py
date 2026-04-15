@@ -16,7 +16,9 @@ import numpy as np
 from rallylens.common import ensure_dir, read_video_properties
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
-from rallylens.viz._utils import track_color
+from rallylens.viz._utils import draw_fading_trail, track_color
+
+_SHUTTLE_COLOR: tuple[int, int, int] = (0, 255, 255)  # yellow (BGR)
 
 # COCO-17 skeleton connections (0-indexed keypoint pairs)
 _COCO_SKELETON: list[tuple[int, int]] = [
@@ -32,7 +34,7 @@ _COCO_SKELETON: list[tuple[int, int]] = [
 __all__ = ["render_overlay_video"]
 
 
-def _draw_bbox(frame: np.ndarray, det: Detection, thickness: int) -> None:  # type: ignore[type-arg]
+def _draw_bbox(frame: np.ndarray, det: Detection, thickness: int) -> None:
     x1, y1, x2, y2 = (int(v) for v in det.bbox_xyxy)
     color = track_color(det.track_id)
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
@@ -47,7 +49,7 @@ def _draw_bbox(frame: np.ndarray, det: Detection, thickness: int) -> None:  # ty
 
 
 def _draw_skeleton(
-    frame: np.ndarray,  # type: ignore[type-arg]
+    frame: np.ndarray,
     det: Detection,
     kp_conf_thresh: float,
     thickness: int,
@@ -73,15 +75,12 @@ def _draw_skeleton(
 def _draw_shuttle_trail(
     frame: np.ndarray, trail: collections.deque  # type: ignore[type-arg]
 ) -> None:
-    n = len(trail)
-    if n == 0:
-        return
-    for i, pt in enumerate(trail):
-        alpha = (i + 1) / n
-        radius = max(2, int(8 * alpha))
-        intensity = int(255 * alpha)
-        color = (0, intensity, intensity)  # fades dark → yellow
-        cv2.circle(frame, (pt.x, pt.y), radius, color, -1, cv2.LINE_AA)
+    draw_fading_trail(
+        frame,
+        [(pt.x, pt.y) for pt in trail],
+        color=_SHUTTLE_COLOR,
+        head_radius=8,
+    )
 
 
 def render_overlay_video(

@@ -18,7 +18,7 @@ from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
     IMG_H,
-    IMG_W,
+    build_heatmap_over_court,
     compute_homography,
     draw_court_background,
     extract_foot_positions,
@@ -26,33 +26,6 @@ from rallylens.viz._utils import (
 )
 
 __all__ = ["render_heatmap"]
-
-
-def _accumulate(positions: list[tuple[int, int]], sigma: int) -> np.ndarray:  # type: ignore[type-arg]
-    grid: np.ndarray = np.zeros((IMG_H, IMG_W), dtype=np.float32)  # type: ignore[type-arg]
-    for x, y in positions:
-        if 0 <= x < IMG_W and 0 <= y < IMG_H:
-            grid[y, x] += 1.0
-    kernel_size = sigma * 4 + 1
-    return cv2.GaussianBlur(grid, (kernel_size, kernel_size), sigma)  # type: ignore[return-value]
-
-
-def _blend_onto_court(
-    court: np.ndarray,  # type: ignore[type-arg]
-    grid: np.ndarray,  # type: ignore[type-arg]
-    alpha_max: float = 0.75,
-) -> np.ndarray:  # type: ignore[type-arg]
-    max_val = float(grid.max())
-    if max_val == 0:
-        return court.copy()
-    normalized = (grid / max_val * 255).astype(np.uint8)
-    heatmap_rgb = cv2.applyColorMap(normalized, cv2.COLORMAP_JET)
-    alpha_map = (grid / max_val * alpha_max).astype(np.float32)[:, :, np.newaxis]
-    blended = (
-        court.astype(np.float32) * (1 - alpha_map)
-        + heatmap_rgb.astype(np.float32) * alpha_map
-    ).astype(np.uint8)
-    return blended
 
 
 def render_heatmap(
@@ -68,25 +41,21 @@ def render_heatmap(
     H = compute_homography(corners)
     court_bg = draw_court_background()
 
-    # Player panel
     foot_positions = extract_foot_positions(detections, H, kp_conf_thresh)
-    player_grid = _accumulate(foot_positions, blur_sigma)
-    player_panel = _blend_onto_court(court_bg, player_grid)
+    player_panel = build_heatmap_over_court(court_bg, foot_positions, blur_sigma=blur_sigma)
     cv2.putText(
         player_panel, "Players", (10, 30),
         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA,
     )
 
-    # Shuttle panel
     shuttle_positions = [project_point(H, float(sp.x), float(sp.y)) for sp in shuttle_track]
-    shuttle_grid = _accumulate(shuttle_positions, blur_sigma)
-    shuttle_panel = _blend_onto_court(court_bg, shuttle_grid)
+    shuttle_panel = build_heatmap_over_court(court_bg, shuttle_positions, blur_sigma=blur_sigma)
     cv2.putText(
         shuttle_panel, "Shuttle", (10, 30),
         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA,
     )
 
-    gap: np.ndarray = np.full((IMG_H, 20, 3), 20, dtype=np.uint8)  # type: ignore[type-arg]
+    gap: np.ndarray = np.full((IMG_H, 20, 3), 20, dtype=np.uint8)
     combined = np.hstack([player_panel, gap, shuttle_panel])
 
     ensure_dir(out_path.parent)

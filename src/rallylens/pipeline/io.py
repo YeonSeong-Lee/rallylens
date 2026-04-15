@@ -85,4 +85,4 @@ def viz_heatmap_path(video_id: str) -> Path:
 
 
 def viz_court_diagram_path(video_id: str) -> Path:
-    return VIZ_DIR / video_id / "court_diagram.png"
+    return VIZ_DIR / video_id / "court_diagram.gif"

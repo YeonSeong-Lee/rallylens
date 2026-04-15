@@ -175,21 +175,26 @@ def run_cmd(url_or_path: str, tracker: str, singles: bool, imgsz: int) -> None:
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--overlay/--no-overlay", default=True, show_default=True, help="Render video overlay MP4.")
 @click.option("--heatmap/--no-heatmap", default=True, show_default=True, help="Render position heatmap PNG.")
-@click.option("--court/--no-court", default=True, show_default=True, help="Render court trajectory diagram PNG.")
+@click.option("--court/--no-court", default=True, show_default=True, help="Render court trajectory diagram GIF.")
 @click.option("--trail-len", type=int, default=30, show_default=True, help="Shuttle trail length in frames.")
+@click.option("--court-stride", type=int, default=5, show_default=True, help="Emit every Nth source frame to the court GIF.")
+@click.option("--court-scale", type=float, default=0.5, show_default=True, help="Downscale factor for the court GIF.")
 def viz_cmd(
     video_path: Path,
     overlay: bool,
     heatmap: bool,
     court: bool,
     trail_len: int,
+    court_stride: int,
+    court_scale: float,
 ) -> None:
     """Render visualization outputs for a processed video.
 
     Loads existing detections, shuttle track, and court corners from the data
     directory and generates up to three outputs: a video overlay (MP4), a
-    position heatmap (PNG), and a court trajectory diagram (PNG).
+    position heatmap (PNG), and an animated court trajectory diagram (GIF).
     """
+    from rallylens.common import read_video_properties
     from rallylens.pipeline.io import (
         load_court_corners,
         load_player_detections,
@@ -201,17 +206,17 @@ def viz_cmd(
     from rallylens.viz import render_court_diagram, render_heatmap, render_overlay_video
 
     video_id = video_path.stem
-    video_stem = video_path.stem
 
-    detections = load_player_detections(video_id, video_stem)
-    shuttle_track = load_shuttle_track(video_id, video_stem)
+    detections = load_player_detections(video_id, video_id)
+    shuttle_track = load_shuttle_track(video_id, video_id)
+    props = read_video_properties(video_path)
 
     if overlay:
         out = render_overlay_video(
             video_path,
             detections,
             shuttle_track,
-            viz_overlay_path(video_id, video_stem),
+            viz_overlay_path(video_id, video_id),
             trail_len=trail_len,
         )
         click.echo(f"overlay:  {out}")
@@ -239,6 +244,9 @@ def viz_cmd(
                 shuttle_track,
                 corners,
                 viz_court_diagram_path(video_id),
+                fps=props.fps,
+                stride=court_stride,
+                scale=court_scale,
             )
             click.echo(f"court:    {out}")
 

@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
     "click>=8.3.2",
     "gdown>=6.0.0",
+    "imageio>=2.31.0",
     "lapx>=0.9.4",
     "opencv-python>=4.13.0.92",
     "pydantic>=2.0",
