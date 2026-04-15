@@ -153,29 +153,29 @@
 ### 스크립트 & 재현성
 - [ ] `scripts/run_full_pipeline.sh` — 샘플 URL 내장, 5분 내 완료 목표
 - [ ] `scripts/download_match.sh` — 여러 경기 배치 다운로드
-- [ ] `uv.lock` 커밋 (재현성)
-- [ ] `.env.example` 최종 검수
+- [x] `uv.lock` 커밋 (재현성)
+- [x] `.env.example` 최종 검수
 
 ### 테스트 & CI
-- [ ] `tests/test_ingest.py` — yt-dlp 래퍼 단위 테스트 (mocking)
-- [ ] `tests/test_events.py` — 이벤트 검출 로직 테스트 (합성 데이터)
-- [ ] `tests/test_kalman.py` — Kalman 필터 sanity check
+- [x] `tests/test_downloader.py` — yt-dlp 래퍼 단위 테스트 (mocking 기반, `test_ingest.py` 역할 대체)
+- [x] `tests/test_events.py` — 이벤트 검출 로직 테스트 (합성 데이터)
+- [x] `tests/test_kalman_tracker.py` — Kalman 필터 sanity check (`test_kalman.py` 역할 대체)
 - [ ] `.github/workflows/test.yml` — pytest CI (Python 3.11, uv 사용)
 - [ ] `ruff check` 통과 (포맷/린트)
 
 ### README 최종판
 - [ ] **히어로 GIF** — 스크롤 없이 보이는 최상단 (추적 오버레이)
-- [ ] 한 줄 피치 (한국어 + 영어)
+- [x] 한 줄 피치 (한국어 + 영어)
 - [ ] **공고 매핑 표** (✓ + 파일 링크) ← 가장 중요한 섹션
 - [ ] 데모 GIF 3개 임베드
-- [ ] 퀵스타트 (`uv sync` → `cp .env.example .env` → `rallylens run <url>`)
+- [x] 퀵스타트 (`uv sync` → `cp .env.example .env` → `rallylens run <url>`)
 - [ ] 아키텍처 다이어그램 (ASCII 또는 이미지)
 - [ ] 파인튜닝 결과 표 (baseline vs fine-tuned) + W&B 스크린샷
 - [ ] LLM 리포트 샘플 임베드
 - [ ] 데이터 & 라이선스 섹션:
-  - [ ] 비디오는 gitignore, URL만 포함, 연구/교육 목적 명시
+  - [x] 비디오는 gitignore, URL만 포함, 연구/교육 목적 명시
   - [ ] 셔틀콕 어노테이션 MIT
-  - [ ] **Ultralytics YOLO11 AGPL-3.0 주의**
+  - [x] **Ultralytics YOLO11 AGPL-3.0 주의**
 - [ ] Roadmap / Limitations (정직하게):
   - [ ] 단일 프레임 YOLO의 셔틀콕 한계 + TrackNetV3 인용
   - [ ] 싱글스 전용, 복식 미지원
