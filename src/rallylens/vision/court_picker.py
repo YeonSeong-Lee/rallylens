@@ -86,7 +86,7 @@ def _draw_overlay(
         for i in range(4):
             cv2.line(img, auto_pts[i], auto_pts[(i + 1) % 4], (0, 220, 220), 2)
         # Draw circles and labels
-        for pt, label in zip(auto_pts, labels):
+        for pt, label in zip(auto_pts, labels, strict=True):
             cv2.circle(img, pt, 10, (0, 220, 220), 2)
             cv2.putText(img, f"AUTO:{label}", (pt[0] + 12, pt[1] - 6),
                         _FONT, _FONT_SCALE - 0.1, (0, 220, 220), _FONT_THICK, cv2.LINE_AA)

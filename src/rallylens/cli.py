@@ -223,10 +223,10 @@ def viz_cmd(
     if heatmap or court:
         try:
             corners = load_court_corners(video_id)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
             raise click.ClickException(
                 f"court calibration not found for {video_id!r} — run `rallylens calibrate` first"
-            )
+            ) from exc
 
         if heatmap:
             out = render_heatmap(
