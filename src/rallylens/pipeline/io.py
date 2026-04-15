@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rallylens.config import DETECTIONS_DIR
-from rallylens.serialization import load_jsonl, save_jsonl
+from rallylens.config import CALIBRATION_DIR, DETECTIONS_DIR, TRACKS_DIR
+from rallylens.serialization import load_json, load_jsonl, save_json, save_jsonl
+from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
+from rallylens.vision.shuttle_tracker import ShuttlePoint
+
+# ---------------------------------------------------------------------------
+# Player detections
+# ---------------------------------------------------------------------------
 
 
 def detections_path(video_id: str, video_stem: str) -> Path:
@@ -23,3 +29,43 @@ def save_player_detections(
 
 def load_player_detections(video_id: str, video_stem: str) -> list[Detection]:
     return load_jsonl(detections_path(video_id, video_stem), Detection)
+
+
+# ---------------------------------------------------------------------------
+# Shuttle tracks
+# ---------------------------------------------------------------------------
+
+
+def shuttle_track_path(video_id: str, video_stem: str) -> Path:
+    return TRACKS_DIR / video_id / f"{video_stem}_shuttle.jsonl"
+
+
+def save_shuttle_track(
+    track: list[ShuttlePoint], video_id: str, video_stem: str
+) -> Path:
+    path = shuttle_track_path(video_id, video_stem)
+    save_jsonl(track, path)
+    return path
+
+
+def load_shuttle_track(video_id: str, video_stem: str) -> list[ShuttlePoint]:
+    return load_jsonl(shuttle_track_path(video_id, video_stem), ShuttlePoint)
+
+
+# ---------------------------------------------------------------------------
+# Court calibration
+# ---------------------------------------------------------------------------
+
+
+def court_corners_path(video_id: str) -> Path:
+    return CALIBRATION_DIR / video_id / "corners.json"
+
+
+def save_court_corners(corners: CourtCorners, video_id: str) -> Path:
+    path = court_corners_path(video_id)
+    save_json(corners, path)
+    return path
+
+
+def load_court_corners(video_id: str) -> CourtCorners:
+    return load_json(court_corners_path(video_id), CourtCorners)

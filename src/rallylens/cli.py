@@ -10,8 +10,8 @@ from rallylens import __version__
 from rallylens.common import get_logger, load_env
 from rallylens.domain.video import is_likely_youtube_url
 from rallylens.ingest.downloader import download_video
-from rallylens.pipeline import run_full_pipeline
-from rallylens.pipeline.io import save_player_detections
+from rallylens.pipeline import run_court_detection, run_full_pipeline, run_shuttle_pipeline
+from rallylens.pipeline.io import court_corners_path, save_player_detections, shuttle_track_path
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
 
 _log = get_logger(__name__)
@@ -50,6 +50,41 @@ def detect_cmd(video_path: Path, tracker: str) -> None:
     player_detections = detect_and_track_players(video_path, tracker=tracker_arg)
     out_path = save_player_detections(player_detections, video_path.stem, video_path.stem)
     click.echo(f"detections: {out_path}")
+
+
+@cli.command("detect-shuttle")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--weights",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to TrackNet weights (.pth). Defaults to models/shuttle_tracknet.pth.",
+)
+def detect_shuttle_cmd(video_path: Path, weights: Path | None) -> None:
+    """Run TrackNetV3 shuttlecock detection on a video file."""
+    track = run_shuttle_pipeline(video_path, video_path.stem, weights)
+    out_path = shuttle_track_path(video_path.stem, video_path.stem)
+    click.echo(f"shuttle track ({len(track)} points): {out_path}")
+
+
+@cli.command("calibrate")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--samples",
+    type=int,
+    default=20,
+    show_default=True,
+    help="Number of frames to sample for court detection.",
+)
+def calibrate_cmd(video_path: Path, samples: int) -> None:
+    """Auto-detect badminton court corners and save calibration data."""
+    corners = run_court_detection(video_path, video_path.stem, sample_count=samples)
+    if corners is None:
+        raise click.ClickException(
+            "court corner detection failed — try a different video or increase --samples"
+        )
+    out_path = court_corners_path(video_path.stem)
+    click.echo(f"court corners: {out_path}")
 
 
 @cli.command("run")

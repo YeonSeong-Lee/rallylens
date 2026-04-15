@@ -12,6 +12,8 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 DATA_DIR: Path = PROJECT_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"
 DETECTIONS_DIR: Path = DATA_DIR / "detections"
+TRACKS_DIR: Path = DATA_DIR / "tracks"
+CALIBRATION_DIR: Path = DATA_DIR / "calibration"
 MODELS_DIR: Path = PROJECT_ROOT / "models"
 
 TARGET_HEIGHT: int = 720
