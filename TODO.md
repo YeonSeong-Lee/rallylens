@@ -1,214 +1,71 @@
-# RallyLens 구현 TODO
+# RallyLens TODO
 
-> 플랜 원본: `~/.claude/plans/resilient-zooming-anchor.md`
-> 전체 일정: 3-4주, 주차별 산출물 중심
-
----
-
-## Phase 0 — 초기 셋업 (Day 1, ~1시간) ✅ 완료
-
-- [x] `uv init --package rallylens` 실행
-- [x] 의존성 설치: `uv add ultralytics opencv-python yt-dlp scenedetect anthropic click pandas pyarrow python-dotenv`
-- [x] 개발 의존성: `uv add --dev pytest ruff`
-- [x] 디렉토리 구조 생성 (`src/rallylens/{ingest,preprocess,vision,analysis,llm,viz}`, `data`, `models`, `outputs/demo`, `configs`, `notebooks`, `scripts`, `tests`)
-- [x] `.gitignore` 작성 (`data/`, `models/`, `.env`, `__pycache__/`, `.venv/`, `*.mp4` 예외 포함)
-- [x] `.env.example` 작성 (`ANTHROPIC_API_KEY=`, `WANDB_API_KEY=`, `RALLYLENS_SEED=42`)
-- [x] `pyproject.toml` 메타데이터 정리 (이름, 설명, 라이선스 = MIT)
-- [x] `git init` + 초기 커밋
-- [ ] GitHub 원격 레포 생성 + push
-- [x] README 플레이스홀더 작성 (한 줄 피치만)
+현재 구현 상태와 남은 작업을 추적합니다.
 
 ---
 
-## Week 1 — Ingest + Baseline 탐지
+## 완료된 항목
 
-**목표:** 1개 샘플 클립에서 end-to-end 동작 + 선수 오버레이 데모 GIF
-
-### Ingest 모듈
-- [x] `src/rallylens/ingest/downloader.py` — yt-dlp 래퍼 (가장 먼저 구현, ML 없는 최소 단위)
-- [x] 720p/30fps 자동 정규화 로직 (`ffmpeg` via opencv 또는 yt-dlp format)
-- [x] 메타데이터 스크레이퍼 (제목, 업로드 날짜, 길이, URL)
-- [x] `src/rallylens/ingest/__init__.py`
-- [x] 다운로드 캐시 로직 (이미 있으면 재사용)
-- [x] `tests/test_downloader.py` — mocking 기반 단위 테스트
-
-### Preprocess 모듈
-- [x] `src/rallylens/preprocess/rally_segmenter.py` — PySceneDetect `ContentDetector` 래퍼
-- [ ] 임계값을 3개 경기로 튜닝 (노트북: `notebooks/01_explore_yolo_baseline.ipynb`)
-- [x] 모션 에너지 fallback (프레임 간 diff로 저동작 구간 제외)
-- [x] 랠리 클립 저장 (`rallies/rally_{idx:04d}.mp4`)
-- [x] 클립 길이 필터 (너무 짧은 것 drop, 예: 3초 미만)
-
-### Vision 기초
-- [x] `src/rallylens/vision/detect_track.py` — `YOLO("yolo11n-pose.pt")` 로딩
-- [x] 선수 추론 + 박스 + 키포인트 추출
-- [x] `src/rallylens/viz/overlay.py` — OpenCV 박스/키포인트 렌더러
-- [x] 오버레이 클립 저장
-- [x] `scripts/make_gif.sh` — mp4 → GIF 변환 (`ffmpeg`)
-
-### Week 1 산출물 체크
-- [ ] **데모 GIF #1** — 선수 박스 + 포즈 키포인트 오버레이 (실제 URL로 E2E 실행 필요)
-- [x] `rallylens ingest <url>` CLI 동작 (click 4-subcommand 그룹 구현, 실 URL 테스트 대기)
-- [ ] 1개 샘플 클립 end-to-end 통과 (실 URL로 `rallylens run` 실행 필요)
-
----
-
-## Week 2 — 셔틀콕 파인튜닝 + 추적
-
-**목표:** fine-tuned 셔틀콕 디텍터 + Kalman 추적 + 궤적 오버레이 GIF
-
-### 데이터 라벨링
-- [x] 라벨링용 프레임 샘플러 구현 (`src/rallylens/preprocess/frame_sampler.py`)
-- [x] 랠리에서 ~400 프레임 자동 추출 (`rallylens sample-frames <video_id> --total 400`)
-- [ ] Label Studio 로컬 설치 (`uv tool install label-studio` 또는 Docker) — **user action**
-- [ ] 셔틀콕 bbox 라벨링 작업 (~2.5시간, 단일 클래스) — **user action**
-- [ ] Label Studio → YOLO format export — **user action**
-- [ ] train/val 8:2 split — **user action**
-
-### 파인튜닝 (Colab T4)
-- [x] `configs/yolo_shuttle.yaml` 작성 (Mosaic **비활성화**, `mosaic: 0.0`)
-- [x] `configs/yolo_shuttle_data.yaml` — 데이터셋 매니페스트
-- [x] `notebooks/02_shuttlecock_finetune.ipynb` 작성 (Colab 스캐폴드)
-- [x] W&B 프로젝트 연동 훅 (`wandb.init(project="rallylens-shuttle")`)
-- [x] `random_seed=42` 고정
-- [x] `yolo11n.pt` 50 epoch 학습 config, `save_period=1` (epoch 체크포인트)
-- [ ] pre-trained baseline mAP 측정 (학습 전) — **Colab run**
-- [ ] fine-tuned mAP 측정 (학습 후) — **Colab run**
-- [ ] **현실적 목표: mAP@0.5 ≥ 0.30** (baseline 대비 개선폭 강조) — **Colab run**
-- [ ] W&B 학습 곡선 스크린샷 저장 — **Colab run**
-
-### 추적 모듈
-- [x] `src/rallylens/vision/shuttlecock_detector.py` — fine-tuned weight 래퍼 + 폴백
-- [x] Kalman 필터 구현 (상태: [x, y, vx, vy], 측정: [x, y])
-- [x] nearest-neighbor 연관 (max-distance 임계값)
-- [x] missed 프레임 보간 로직
-- [x] `src/rallylens/vision/detect_track.py`에 **ByteTrack(선수 전용)** 추가: `model.track(tracker="bytetrack.yaml")`
-- [ ] 싱글스 2명 선수 ID 유지 검증 (실 URL로 E2E 실행 필요)
-
-### 코트 호모그래피
-- [x] `src/rallylens/vision/court_homography.py` — 4점 수동 클릭 UI (`pick_points_interactive`)
-- [x] `cv2.findHomography()`로 H 행렬 계산
-- [x] 경기 시작 시 1회 캘리브레이션 후 JSON에 저장 (`rallylens calibrate <video_id>`)
-- [x] 이미지 좌표 → 코트 좌표 변환 유틸 함수 (`CourtHomography.image_to_court`)
-
-### Week 2 산출물 체크
-- [ ] **데모 GIF #2** — 셔틀콕 궤적 오버레이 (Kalman 보간 포함) — fine-tuning 후
-- [ ] 셔틀콕 탐지 평가 표 (baseline / fine-tuned) — Colab 실행 후
-- [ ] 선수 추적 ID 유지 확인 — 실 URL로 `rallylens detect --tracker bytetrack` 실행 필요
-
----
-
-## Week 3 — 분석 + LLM 리포트
-
-**목표:** 이벤트 탐지 + 히트맵 + Claude 리포트 생성기 + 전체 CLI
-
-### 이벤트 탐지
-- [x] `src/rallylens/analysis/events.py` 구현
-- [x] **속도 벡터 방향 반전** 검출 (연속 프레임 내적 부호 변화)
-- [x] **Kalman 잔차 스파이크** 검출 (평균 + N×σ 임계값)
-- [x] 두 신호 OR 조합 → hit 이벤트 (refractory window)
-- [x] `events.jsonl` 스키마 정의 (frame, time, type, position, velocity, signals, player_side)
-- [x] 랠리 단위 집계 (샷 수, 지속 시간, top/bottom 분포, 평균 간격)
-
-### 분석 시각화
-- [x] `src/rallylens/analysis/heatmap.py` — matplotlib 시각화
-- [x] 선수 포지션 히트맵 (코트 좌표계, 2D hist)
-- [x] 셔틀 궤적 궤적 플롯
-- [x] 랠리 길이 히스토그램
-- [x] `data/heatmaps/{video_id}/heatmaps.png` 저장 + `outputs/demo/` 복사
-
-### LLM 리포트 생성기
-- [x] `src/rallylens/llm/report_generator.py` 구현
-- [x] anthropic SDK 연동, 모델: `claude-sonnet-4-6` (플랜의 sonnet-4-5 후속, 동일 가격)
-- [x] system 프롬프트 설계 (이벤트 스키마 + 리포트 템플릿 + 캐비아 + 예시, **Sonnet 4.6 캐시 최소 2048 토큰 초과**)
-- [x] `cache_control: {"type": "ephemeral"}` 적용 (prompt caching)
-- [x] events.jsonl + rally stats → Markdown 리포트 생성
-- [x] 리포트 구조: 경기 개요 / 랠리별 분석 / 플레이 패턴 / 주목할 랠리 / 한계
-- [x] 에러 핸들링 (APIStatusError, APIConnectionError 타입 기반)
-
-### 라벨 QA 보조 에이전트
-- [x] `src/rallylens/llm/label_qa.py` — YOLO 예측 crop + bbox를 Claude 비전에 리뷰 요청
-- [x] strict JSON schema output (`verdict`, `confidence`, `reason`, `likely_object`)
-- [x] 의심 라벨 JSONL 출력
-- [x] 공고 (1) 데이터 정리 + (4) 자동화 로직 동시 충족 컴포넌트
-
-### CLI 완성
-- [x] `src/rallylens/cli.py` — click 기반 10개 서브커맨드
-- [x] `rallylens ingest/segment/sample-frames/calibrate/detect/events/heatmaps/report/label-qa/run`
-- [x] `pyproject.toml`의 `[project.scripts]`에 등록
-- [x] `find_rally()` 헬퍼 추출 — CLI 3개 커맨드의 중복 rally 조회 로직 단일화 (`preprocess/rally_segmenter.py`)
-- [ ] `uv run rallylens run <sample_url>` end-to-end 검증 (실 URL 필요)
-
-### Week 3 산출물 체크
-- [ ] **데모 GIF #3** — 히트맵 / 리포트 스크린샷 (실 URL로 `run` 실행 후)
-- [ ] `data/reports/{video_id}/match_report.md` 샘플 (실 URL로 `run` 실행 후)
-- [ ] `rallylens run <url>` 단일 명령으로 전체 파이프라인 실행 성공 (실 URL 필요)
-
----
-
-## Week 4 — 폴리싱 + README + 재현성
-
-**목표:** GitHub 레포 제출 가능한 최종 상태
-
-### 스크립트 & 재현성
-- [ ] `scripts/run_full_pipeline.sh` — 샘플 URL 내장, 5분 내 완료 목표
-- [ ] `scripts/download_match.sh` — 여러 경기 배치 다운로드
+### 인프라
+- [x] 프로젝트 셋업 (`uv`, `pyproject.toml`, `.gitignore`)
 - [x] `uv.lock` 커밋 (재현성)
-- [x] `.env.example` 최종 검수
 
-### 테스트 & CI
-- [x] `tests/test_downloader.py` — yt-dlp 래퍼 단위 테스트 (mocking 기반, `test_ingest.py` 역할 대체)
-- [x] `tests/test_events.py` — 이벤트 검출 로직 테스트 (합성 데이터)
-- [x] `tests/test_kalman_tracker.py` — Kalman 필터 sanity check (`test_kalman.py` 역할 대체)
+### Ingest
+- [x] `src/rallylens/ingest/downloader.py` — yt-dlp 래퍼, 캐시 로직 포함
+- [x] `tests/test_downloader.py`
+
+### 선수 추적
+- [x] `src/rallylens/vision/detect_track.py` — YOLO11 + ByteTrack
+- [x] `rallylens detect <video_path>` CLI
+- [x] 결과: `data/detections/<video_stem>/<video_stem>_players.jsonl`
+
+### 셔틀콕 탐지
+- [x] `src/rallylens/vision/tracknet.py` — TrackNetV3 모델 구현
+- [x] `src/rallylens/vision/shuttle_tracker.py` — 슬라이딩 윈도우 추론 래퍼
+- [x] `src/rallylens/pipeline/shuttle.py` — 전체 영상 탐지 파이프라인
+- [x] `rallylens detect-shuttle <video_path>` CLI
+- [x] 결과: `data/tracks/<video_stem>/<video_stem>_shuttle.jsonl`
+
+### 코트 캘리브레이션
+- [x] `src/rallylens/vision/court_detector.py` — Hough 변환 기반 자동 코너 탐지
+- [x] `src/rallylens/pipeline/court.py`
+- [x] `rallylens calibrate <video_path>` CLI
+- [x] 결과: `data/calibration/<video_stem>/corners.json`
+
+### 전체 파이프라인
+- [x] `rallylens run <url-or-path>` — 다운로드 + 선수 추적 one-shot
+
+### 공통
+- [x] `src/rallylens/pipeline/io.py` — 아티팩트 경로 단일 관리
+- [x] `src/rallylens/serialization.py`
+- [x] `tests/test_serialization.py`, `tests/test_common.py`, `tests/test_cli_integration.py`
+
+---
+
+## 남은 작업
+
+### 필수
+
+- [ ] TrackNetV3 pretrained weights 확보 → `models/shuttle_tracknet.pth` 저장
+- [ ] `rallylens run <sample_url>` end-to-end 검증 (실 URL)
+- [ ] GitHub 원격 레포 생성 + push
+
+### CI / 품질
+
 - [ ] `.github/workflows/test.yml` — pytest CI (Python 3.11, uv 사용)
-- [ ] `ruff check` 통과 (포맷/린트)
+- [ ] `ruff check` 통과 확인
 
-### README 최종판
-- [ ] **히어로 GIF** — 스크롤 없이 보이는 최상단 (추적 오버레이)
-- [x] 한 줄 피치 (한국어 + 영어)
-- [ ] **공고 매핑 표** (✓ + 파일 링크) ← 가장 중요한 섹션
-- [ ] 데모 GIF 3개 임베드
-- [x] 퀵스타트 (`uv sync` → `cp .env.example .env` → `rallylens run <url>`)
-- [ ] 아키텍처 다이어그램 (ASCII 또는 이미지)
-- [ ] 파인튜닝 결과 표 (baseline vs fine-tuned) + W&B 스크린샷
-- [ ] LLM 리포트 샘플 임베드
-- [ ] 데이터 & 라이선스 섹션:
-  - [x] 비디오는 gitignore, URL만 포함, 연구/교육 목적 명시
-  - [ ] 셔틀콕 어노테이션 MIT
-  - [x] **Ultralytics YOLO11 AGPL-3.0 주의**
-- [ ] Roadmap / Limitations (정직하게):
-  - [ ] 단일 프레임 YOLO의 셔틀콕 한계 + TrackNetV3 인용
-  - [ ] 싱글스 전용, 복식 미지원
-  - [ ] 고정 카메라 가정, 리플레이 미처리
-  - [ ] 수동 코트 캘리브레이션
-- [ ] 참고 문헌 (ShuttleSet KDD 2023, TrackNetV3)
+### README / 데모
 
-### 데모 자산
-- [ ] `outputs/demo/` 에 최종 GIF 3개 커밋
-- [ ] `outputs/demo/sample_report.md` 커밋
-- [ ] 30초 스크린캐스트 녹화 + 호스팅 링크 (또는 GIF로 변환)
-
-### 최종 검증 체크리스트
-- [ ] `git clone` + `uv sync` + `rallylens run <sample>` 클린 환경에서 5분 내 완료
-- [ ] `pytest` 전체 통과
-- [ ] README 4개 공고 업무 매핑 ✓ 체크 — 각 파일 링크 클릭 테스트
-- [ ] `outputs/demo/` GIF 3개 재생 가능
-- [ ] match_report.md 할루시네이션 수동 검토
-- [ ] fine-tuned mAP@0.5 ≥ 0.30 달성
+- [ ] 히어로 GIF — 선수 추적 오버레이 (`scripts/make_gif.sh` 활용)
+- [ ] `outputs/demo/` 에 데모 GIF 커밋
+- [ ] 아키텍처 다이어그램 (ASCII)
 
 ---
 
-## 스트레치 (시간 여유 시, 우선순위 순)
+## 스트레치
 
-- [ ] **샷 타입 분류기** — smash/clear/drop 3클래스, ~200개 hit-frame 윈도우 라벨링, 셔틀 속도 + 선수 포즈 feature로 소형 MLP 학습 (공고의 "**분류**" 항목을 추가로 충족)
-- [ ] **Gradio 데모** — 클립 업로드 → 오버레이 + 리포트 반환 (단일 파일 ~80줄)
-- [ ] **코트 키포인트 자동 탐지** — 수동 4점 클릭 대체
-
----
-
-## 리스크 알림 (작업 중 수시 확인)
-
-- 셔틀콕 mAP가 0.30에 못 미쳐도 **Kalman 보간으로 궤적은 복구 가능** — README에 한계 솔직히 기록
-- 스코프 크립 주의: 복식/자동 코트/실시간은 **절대 코어 일정에 포함 금지**
-- Colab 세션 드롭 → `save_period=1`로 epoch 체크포인트 필수
-- LLM 비용 경기당 $0.05-0.10, 예산 $5 이하 유지 (Sonnet + prompt caching)
+- [ ] **CourtMapper 활용** — `src/rallylens/vision/court_mapping.py` 복구 후 셔틀 궤적을 코트 좌표계로 투영
+- [ ] **히트맵** — 선수 포지션 / 셔틀 낙하 지점 시각화
+- [ ] **이벤트 탐지** — 셔틀 속도 반전으로 hit 이벤트 검출
+- [ ] **Gradio 데모** — 클립 업로드 → 오버레이 반환

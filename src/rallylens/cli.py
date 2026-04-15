@@ -138,6 +138,78 @@ def run_cmd(url_or_path: str, tracker: str) -> None:
     click.echo(f"detections saved for {result.video_id}: {result.detections_path}")
 
 
+@cli.command("viz")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--overlay/--no-overlay", default=True, show_default=True, help="Render video overlay MP4.")
+@click.option("--heatmap/--no-heatmap", default=True, show_default=True, help="Render position heatmap PNG.")
+@click.option("--court/--no-court", default=True, show_default=True, help="Render court trajectory diagram PNG.")
+@click.option("--trail-len", type=int, default=30, show_default=True, help="Shuttle trail length in frames.")
+def viz_cmd(
+    video_path: Path,
+    overlay: bool,
+    heatmap: bool,
+    court: bool,
+    trail_len: int,
+) -> None:
+    """Render visualization outputs for a processed video.
+
+    Loads existing detections, shuttle track, and court corners from the data
+    directory and generates up to three outputs: a video overlay (MP4), a
+    position heatmap (PNG), and a court trajectory diagram (PNG).
+    """
+    from rallylens.pipeline.io import (
+        load_court_corners,
+        load_player_detections,
+        load_shuttle_track,
+        viz_court_diagram_path,
+        viz_heatmap_path,
+        viz_overlay_path,
+    )
+    from rallylens.viz import render_court_diagram, render_heatmap, render_overlay_video
+
+    video_id = video_path.stem
+    video_stem = video_path.stem
+
+    detections = load_player_detections(video_id, video_stem)
+    shuttle_track = load_shuttle_track(video_id, video_stem)
+
+    if overlay:
+        out = render_overlay_video(
+            video_path,
+            detections,
+            shuttle_track,
+            viz_overlay_path(video_id, video_stem),
+            trail_len=trail_len,
+        )
+        click.echo(f"overlay:  {out}")
+
+    if heatmap or court:
+        try:
+            corners = load_court_corners(video_id)
+        except FileNotFoundError:
+            raise click.ClickException(
+                f"court calibration not found for {video_id!r} — run `rallylens calibrate` first"
+            )
+
+        if heatmap:
+            out = render_heatmap(
+                detections,
+                shuttle_track,
+                corners,
+                viz_heatmap_path(video_id),
+            )
+            click.echo(f"heatmap:  {out}")
+
+        if court:
+            out = render_court_diagram(
+                detections,
+                shuttle_track,
+                corners,
+                viz_court_diagram_path(video_id),
+            )
+            click.echo(f"court:    {out}")
+
+
 def main() -> None:
     cli()
 

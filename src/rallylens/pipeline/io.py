@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rallylens.config import CALIBRATION_DIR, DETECTIONS_DIR, TRACKS_DIR
+from rallylens.config import CALIBRATION_DIR, DETECTIONS_DIR, TRACKS_DIR, VIZ_DIR
 from rallylens.serialization import load_json, load_jsonl, save_json, save_jsonl
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
@@ -69,3 +69,20 @@ def save_court_corners(corners: CourtCorners, video_id: str) -> Path:
 
 def load_court_corners(video_id: str) -> CourtCorners:
     return load_json(court_corners_path(video_id), CourtCorners)
+
+
+# ---------------------------------------------------------------------------
+# Visualization outputs
+# ---------------------------------------------------------------------------
+
+
+def viz_overlay_path(video_id: str, video_stem: str) -> Path:
+    return VIZ_DIR / video_id / f"{video_stem}_overlay.mp4"
+
+
+def viz_heatmap_path(video_id: str) -> Path:
+    return VIZ_DIR / video_id / "heatmap.png"
+
+
+def viz_court_diagram_path(video_id: str) -> Path:
+    return VIZ_DIR / video_id / "court_diagram.png"
