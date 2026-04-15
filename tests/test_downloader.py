@@ -72,10 +72,8 @@ def test_download_video_cache_hit_skips_network(
         url=f"https://www.youtube.com/watch?v={video_id}",
         source_path=tmp_path / f"{video_id}.mp4",
     )
-    import json
-
     (tmp_path / f"{video_id}.meta.json").write_text(
-        json.dumps(meta.to_json_dict()), encoding="utf-8"
+        meta.model_dump_json(), encoding="utf-8"
     )
 
     def boom(*_args, **_kwargs):
