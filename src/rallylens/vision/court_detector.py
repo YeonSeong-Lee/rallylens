@@ -16,10 +16,36 @@ Returns CourtCorners or None if detection fails.
 from __future__ import annotations
 
 from math import cos, pi, sin
+from typing import Final
 
 import cv2
 import numpy as np
 from pydantic import BaseModel, ConfigDict
+
+# ── Stage 1: edge detection ────────────────────────────────────────────────
+_GRAY_THRESHOLD: Final[int] = 156
+_CANNY_LOW: Final[int] = 100
+_CANNY_HIGH: Final[int] = 200
+_CANNY_ERODED_LOW: Final[int] = 90
+_CANNY_ERODED_HIGH: Final[int] = 100
+
+# ── Stage 1: HoughLinesP ───────────────────────────────────────────────────
+_HOUGH_THRESHOLD: Final[int] = 150
+_HOUGH_MIN_LINE_LENGTH: Final[int] = 100
+_HOUGH_MAX_LINE_GAP: Final[int] = 10
+
+# ── Stage 2: line intersection ─────────────────────────────────────────────
+_INTERSECTION_BOUNDARY_PAD: Final[int] = 200
+
+# ── Stage 3: morphology + line ranking ─────────────────────────────────────
+_MORPHOLOGY_KERNEL_SIZE: Final[tuple[int, int]] = (5, 5)
+_TOP_INTERSECTING_LINES: Final[int] = 8
+
+# ── Stage 4: HoughLines on cleaned mask ────────────────────────────────────
+_HOUGH_MAIN_THRESHOLD: Final[int] = 300
+
+# ── Small vertical correction applied to the top boundary lines ────────────
+_TOP_LINE_VERTICAL_CORRECTION: Final[int] = 4
 
 
 class CourtCorners(BaseModel):
@@ -85,10 +111,17 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
 
     # ── Stage 1: edge detection ──────────────────────────────────────────────
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, bw = cv2.threshold(gray, 156, 255, cv2.THRESH_BINARY)
-    canny = cv2.Canny(bw, 100, 200)
+    _, bw = cv2.threshold(gray, _GRAY_THRESHOLD, 255, cv2.THRESH_BINARY)
+    canny = cv2.Canny(bw, _CANNY_LOW, _CANNY_HIGH)
 
-    h_lines_p = cv2.HoughLinesP(canny, 1, pi / 180, threshold=150, minLineLength=100, maxLineGap=10)
+    h_lines_p = cv2.HoughLinesP(
+        canny,
+        1,
+        pi / 180,
+        threshold=_HOUGH_THRESHOLD,
+        minLineLength=_HOUGH_MIN_LINE_LENGTH,
+        maxLineGap=_HOUGH_MAX_LINE_GAP,
+    )
     if h_lines_p is None or len(h_lines_p) == 0:
         return None
 
@@ -105,16 +138,23 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
             seg2: _Line = [[float(x3), float(y3)], [float(x4), float(y4)]]
             if l1 is l2:
                 continue
-            if _find_intersection(seg1, seg2, lx1 - 200, ly1 - 200, lx2 + 200, ly2 + 200):
+            if _find_intersection(
+                seg1,
+                seg2,
+                lx1 - _INTERSECTION_BOUNDARY_PAD,
+                ly1 - _INTERSECTION_BOUNDARY_PAD,
+                lx2 + _INTERSECTION_BOUNDARY_PAD,
+                ly2 + _INTERSECTION_BOUNDARY_PAD,
+            ):
                 intersect_count[i][0] += 1
         intersect_count[i][1] = i
 
     # ── Stage 3: flood-fill the top-8 most intersecting lines to isolate court
-    dilation = cv2.dilate(bw, np.ones((5, 5), np.uint8), iterations=1)
+    dilation = cv2.dilate(bw, np.ones(_MORPHOLOGY_KERNEL_SIZE, np.uint8), iterations=1)
     non_rect = dilation.copy()
     ranked = intersect_count[(-intersect_count)[:, 0].argsort()]
 
-    for p in range(min(8, n)):
+    for p in range(min(_TOP_INTERSECTING_LINES, n)):
         orig_idx = int(ranked[p][1])
         # Preserve original (quirky) gating: look up ranked row at orig_idx slot.
         if orig_idx >= n or ranked[orig_idx][0] <= 0:
@@ -126,11 +166,11 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
 
     dilation[non_rect == 255] = 0
     dilation[non_rect == 1] = 255
-    eroded = cv2.erode(dilation, np.ones((5, 5), np.uint8))
-    canny_main = cv2.Canny(eroded, 90, 100)
+    eroded = cv2.erode(dilation, np.ones(_MORPHOLOGY_KERNEL_SIZE, np.uint8))
+    canny_main = cv2.Canny(eroded, _CANNY_ERODED_LOW, _CANNY_ERODED_HIGH)
 
     # ── Stage 4: find extreme boundary lines via HoughLines ──────────────────
-    h_lines = cv2.HoughLines(canny_main, 2, pi / 180, 300)
+    h_lines = cv2.HoughLines(canny_main, 2, pi / 180, _HOUGH_MAIN_THRESHOLD)
     if h_lines is None or len(h_lines) == 0:
         return None
 
@@ -196,8 +236,8 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
 
     # Apply a small vertical correction to the top lines (same as TRACE)
     for seg in (yo_top_line, yf_top_line):
-        seg[0][1] += 4
-        seg[1][1] += 4
+        seg[0][1] += _TOP_LINE_VERTICAL_CORRECTION
+        seg[1][1] += _TOP_LINE_VERTICAL_CORRECTION
 
     # ── Stage 5: compute four corners ────────────────────────────────────────
     tl = _find_intersection(xo_left_line,  yo_top_line,    *bounds)

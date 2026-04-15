@@ -8,6 +8,7 @@ court diagram with a JET colormap, and saves a side-by-side PNG.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Final
 
 import cv2
 import numpy as np
@@ -24,6 +25,9 @@ from rallylens.viz._utils import (
     draw_court_background,
     extract_foot_positions,
 )
+
+_HEATMAP_PANEL_GAP: Final[int] = 20
+_HEATMAP_GAP_COLOR: Final[tuple[int, int, int]] = (20, 20, 20)
 
 __all__ = ["render_heatmap"]
 
@@ -58,7 +62,9 @@ def render_heatmap(
         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA,
     )
 
-    gap: np.ndarray = np.full((IMG_H, 20, 3), 20, dtype=np.uint8)
+    gap: np.ndarray = np.full(
+        (IMG_H, _HEATMAP_PANEL_GAP, 3), _HEATMAP_GAP_COLOR, dtype=np.uint8
+    )
     combined = np.hstack([player_panel, gap, shuttle_panel])
 
     ensure_dir(out_path.parent)

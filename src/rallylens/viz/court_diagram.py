@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from pathlib import Path
+from typing import Final
 
 import cv2
 import imageio.v2 as iio
@@ -32,6 +33,10 @@ from rallylens.viz._utils import (
     group_detections_by_frame,
     track_color,
 )
+
+_MAX_DISPLAY_PLAYERS: Final[int] = 2
+_LABEL_OFFSET_PX: Final[int] = 4
+_PLAYER_LABEL_FONT_SCALE: Final[float] = 0.6
 
 __all__ = ["render_court_diagram"]
 
@@ -86,7 +91,7 @@ def render_court_diagram(
 
     observed_ids = sorted({det.track_id for det in detections if det.track_id is not None})
     id_to_label: dict[int, str] = {}
-    for rank, tid in enumerate(observed_ids[:2]):
+    for rank, tid in enumerate(observed_ids[:_MAX_DISPLAY_PLAYERS]):
         id_to_label[tid] = f"P{rank + 1}"
 
     player_trails: dict[int, deque[tuple[int, int]]] = defaultdict(
@@ -141,9 +146,9 @@ def render_court_diagram(
                         cv2.putText(
                             frame,
                             label,
-                            (cx + player_radius + 4, cy + 4),
+                            (cx + player_radius + _LABEL_OFFSET_PX, cy + _LABEL_OFFSET_PX),
                             cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
+                            _PLAYER_LABEL_FONT_SCALE,
                             color,
                             2,
                             cv2.LINE_AA,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import collections
 from pathlib import Path
+from typing import Final
 
 import cv2
 import numpy as np
@@ -21,6 +22,10 @@ from rallylens.viz._utils import (
     group_detections_by_frame,
     track_color,
 )
+
+_KEYPOINT_RADIUS: Final[int] = 3
+_LABEL_FONT_SCALE: Final[float] = 0.5
+_LABEL_TEXT_THICKNESS: Final[int] = 1
 
 # COCO-17 skeleton connections (0-indexed keypoint pairs)
 _COCO_SKELETON: list[tuple[int, int]] = [
@@ -41,12 +46,15 @@ def _draw_bbox(frame: np.ndarray, det: Detection, thickness: int) -> None:
     color = track_color(det.track_id)
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
     label = f"id={det.track_id}" if det.track_id is not None else f"{det.confidence:.2f}"
-    (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+    (tw, th), _ = cv2.getTextSize(
+        label, cv2.FONT_HERSHEY_SIMPLEX, _LABEL_FONT_SCALE, _LABEL_TEXT_THICKNESS
+    )
     lbl_y = max(y1, th + 4)
     cv2.rectangle(frame, (x1, lbl_y - th - 4), (x1 + tw + 4, lbl_y), color, -1)
     cv2.putText(
         frame, label, (x1 + 2, lbl_y - 2),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
+        cv2.FONT_HERSHEY_SIMPLEX, _LABEL_FONT_SCALE, (0, 0, 0),
+        _LABEL_TEXT_THICKNESS, cv2.LINE_AA,
     )
 
 
@@ -61,7 +69,7 @@ def _draw_skeleton(
     color = track_color(det.track_id)
     for i, (kx, ky) in enumerate(kps):
         if i < len(confs) and confs[i] > kp_conf_thresh:
-            cv2.circle(frame, (int(kx), int(ky)), 3, color, -1, cv2.LINE_AA)
+            cv2.circle(frame, (int(kx), int(ky)), _KEYPOINT_RADIUS, color, -1, cv2.LINE_AA)
     for a, b in _COCO_SKELETON:
         if a >= len(kps) or b >= len(kps):
             continue

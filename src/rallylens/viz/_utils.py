@@ -5,18 +5,36 @@ are centralised here so overlay.py, court_diagram.py, and heatmap.py all stay
 thin.
 """
 
+# TODO: promote court geometry (COURT_W/H, MARGIN, _NET_Y, compute_homography,
+# project_point, foot_pixel_from_detection) to a neutral module such as
+# rallylens.vision.court_geometry. Today rallylens.analysis.metrics imports
+# them from here, which inverts the viz → analysis layering. See plan
+# dreamy-watching-tide for the reasoning.
+
 from __future__ import annotations
 
 import math
 from collections import defaultdict
 from collections.abc import Iterable
+from typing import Final
 
 import cv2
 import numpy as np
 
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
-from rallylens.vision.shuttle_tracker import ShuttlePoint
+from rallylens.vision.shuttle_tracker import HitEvent, ShuttlePoint
+
+# Consecutive candidate hit frames within this gap are collapsed into a single event
+_HIT_GROUPING_MAX_GAP_FRAMES: Final[int] = 2
+
+# Gaussian blur kernel width: (sigma * multiplier) + 1
+_BLUR_KERNEL_MULTIPLIER: Final[int] = 4
+
+# Fading-trail radius scaling
+_TRAIL_RADIUS_MIN_FACTOR: Final[float] = 0.4
+_TRAIL_RADIUS_MAX_FACTOR: Final[float] = 0.6
+_TRAIL_RADIUS_MIN_PX: Final[int] = 2
 
 # ---------------------------------------------------------------------------
 # Court diagram constants (1 px = 1 cm)
@@ -272,15 +290,19 @@ def _nose_pixel(det: Detection, kp_conf_thresh: float) -> tuple[float, float] | 
     return det.keypoints_xy[_KP_NOSE]
 
 
-def compute_shuttle_court_positions(
+def extract_hit_events(
     detections: list[Detection],
     shuttle_track: list[ShuttlePoint],
     H: np.ndarray,
     *,
     kp_conf_thresh: float = 0.3,
     hit_radius_factor: float = 0.9,
-) -> dict[int, tuple[int, int]]:
-    """Compute per-frame top-down shuttle positions via TRACE's hit+interp trick.
+) -> list[HitEvent]:
+    """Detect shuttle-to-racket contacts via TRACE's wrist-proximity heuristic.
+
+    Implements steps 1–3 of the original `compute_shuttle_court_positions`
+    algorithm without the interpolation step, so callers who need the raw
+    event list (metrics, analytics) can consume it directly.
 
     Algorithm:
       1. For each shuttle frame, find the player whose nearest wrist is
@@ -293,26 +315,23 @@ def compute_shuttle_court_positions(
          group the frame with the smallest wrist-to-ball distance is kept
          as the canonical hit event. This collapses a multi-frame near-
          contact into a single event.
-      4. Between consecutive hit events the top-down coordinate is filled
-         by linear interpolation so the trail draws cleanly.
 
-    Returns a dict mapping frame_idx -> (x, y) in court-diagram pixel space.
-    Empty dict if no hit events are detected (which, combined with an
-    empty `shuttle_track` or missing keypoints, leaves shuttle rendering
-    gracefully empty).
+    Returns a chronologically sorted list of `HitEvent`. Empty list if no
+    contacts are detected, the shuttle track is empty, or detections are
+    missing keypoints.
     """
     if not shuttle_track or not detections:
-        return {}
+        return []
 
     dets_by_frame = group_detections_by_frame(detections)
     shuttle_by_frame: dict[int, ShuttlePoint] = {sp.frame_idx: sp for sp in shuttle_track}
 
-    # (frame_idx, wrist_ball_distance, event_point)
-    candidates: list[tuple[int, float, tuple[int, int]]] = []
+    # (frame_idx, wrist_ball_distance, event_point, striker_track_id)
+    candidates: list[tuple[int, float, tuple[int, int], int | None]] = []
     for fi in sorted(shuttle_by_frame.keys()):
         sp = shuttle_by_frame[fi]
         ball_xy = (float(sp.x), float(sp.y))
-        best: tuple[float, tuple[int, int]] | None = None
+        best: tuple[float, tuple[int, int], int | None] | None = None
         for det in dets_by_frame.get(fi, []):
             foot = foot_pixel_from_detection(det, kp_conf_thresh)
             if foot is None:
@@ -334,31 +353,74 @@ def compute_shuttle_court_positions(
             foot_proj = project_point(H, foot[0], foot[1])
             event_pt = (ball_proj[0], foot_proj[1])
             if best is None or wrist_dist < best[0]:
-                best = (wrist_dist, event_pt)
+                best = (wrist_dist, event_pt, det.track_id)
         if best is not None:
-            candidates.append((fi, best[0], best[1]))
+            candidates.append((fi, best[0], best[1], best[2]))
 
     if not candidates:
-        return {}
+        return []
 
     # Collapse consecutive near-contact frames into a single canonical hit
-    hits: list[tuple[int, tuple[int, int]]] = []
-    group: list[tuple[int, float, tuple[int, int]]] = [candidates[0]]
+    hits: list[HitEvent] = []
+    group: list[tuple[int, float, tuple[int, int], int | None]] = [candidates[0]]
     for c in candidates[1:]:
-        if c[0] - group[-1][0] <= 2:
+        if c[0] - group[-1][0] <= _HIT_GROUPING_MAX_GAP_FRAMES:
             group.append(c)
         else:
             best_in_group = min(group, key=lambda x: x[1])
-            hits.append((best_in_group[0], best_in_group[2]))
+            hits.append(
+                HitEvent(
+                    frame_idx=best_in_group[0],
+                    striker_track_id=best_in_group[3],
+                    wrist_distance_px=best_in_group[1],
+                    event_court_xy=best_in_group[2],
+                )
+            )
             group = [c]
     best_in_group = min(group, key=lambda x: x[1])
-    hits.append((best_in_group[0], best_in_group[2]))
+    hits.append(
+        HitEvent(
+            frame_idx=best_in_group[0],
+            striker_track_id=best_in_group[3],
+            wrist_distance_px=best_in_group[1],
+            event_court_xy=best_in_group[2],
+        )
+    )
 
-    # Linearly interpolate between consecutive hit events
+    return hits
+
+
+def compute_shuttle_court_positions(
+    detections: list[Detection],
+    shuttle_track: list[ShuttlePoint],
+    H: np.ndarray,
+    *,
+    kp_conf_thresh: float = 0.3,
+    hit_radius_factor: float = 0.9,
+) -> dict[int, tuple[int, int]]:
+    """Compute per-frame top-down shuttle positions via TRACE's hit+interp trick.
+
+    Thin composition: calls `extract_hit_events` for the event list and then
+    linearly interpolates between consecutive events so the trail draws
+    cleanly. See `extract_hit_events` for the hit-detection details.
+
+    Returns a dict mapping frame_idx -> (x, y) in court-diagram pixel space.
+    Empty dict if no hit events are detected.
+    """
+    hits = extract_hit_events(
+        detections,
+        shuttle_track,
+        H,
+        kp_conf_thresh=kp_conf_thresh,
+        hit_radius_factor=hit_radius_factor,
+    )
+    if not hits:
+        return {}
+
     result: dict[int, tuple[int, int]] = {}
     for i in range(len(hits) - 1):
-        t0, p0 = hits[i]
-        t1, p1 = hits[i + 1]
+        t0, p0 = hits[i].frame_idx, hits[i].event_court_xy
+        t1, p1 = hits[i + 1].frame_idx, hits[i + 1].event_court_xy
         dt = t1 - t0
         if dt <= 0:
             result[t0] = p0
@@ -368,7 +430,7 @@ def compute_shuttle_court_positions(
             x = int(round(p0[0] + alpha * (p1[0] - p0[0])))
             y = int(round(p0[1] + alpha * (p1[1] - p0[1])))
             result[t0 + j] = (x, y)
-    result[hits[-1][0]] = hits[-1][1]
+    result[hits[-1].frame_idx] = hits[-1].event_court_xy
 
     return result
 
@@ -399,7 +461,7 @@ def build_heatmap_over_court(
         if 0 <= x < IMG_W and 0 <= y < IMG_H:
             grid[y, x] += 1.0
 
-    kernel_size = blur_sigma * 4 + 1
+    kernel_size = blur_sigma * _BLUR_KERNEL_MULTIPLIER + 1
     grid = cv2.GaussianBlur(grid, (kernel_size, kernel_size), blur_sigma)
 
     max_val = float(grid.max())
@@ -442,6 +504,9 @@ def draw_fading_trail(
         return
     for i, pt in enumerate(pts):
         alpha = (i + 1) / n
-        radius = max(2, int(head_radius * (0.4 + 0.6 * alpha)))
+        radius = max(
+            _TRAIL_RADIUS_MIN_PX,
+            int(head_radius * (_TRAIL_RADIUS_MIN_FACTOR + _TRAIL_RADIUS_MAX_FACTOR * alpha)),
+        )
         faded = (int(color[0] * alpha), int(color[1] * alpha), int(color[2] * alpha))
         cv2.circle(frame, pt, radius, faded, -1, cv2.LINE_AA)

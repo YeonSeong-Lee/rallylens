@@ -17,6 +17,7 @@ ESC / Q        — cancel (returns None)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Final
 
 import cv2
 import numpy as np
@@ -31,7 +32,10 @@ _MAX_W = 1280
 _MAX_H = 720
 
 # Drawing constants
-_STATUS_H = 40
+_STATUS_BAR_HEIGHT: Final[int] = 40
+_HEADER_BAR_HEIGHT: Final[int] = 28
+_CORNER_POINT_RADIUS: Final[int] = 10
+_WAITKEY_MS: Final[int] = 20
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
 _FONT_SCALE = 0.55
 _FONT_THICK = 1
@@ -87,7 +91,7 @@ def _draw_overlay(
             cv2.line(img, auto_pts[i], auto_pts[(i + 1) % 4], (0, 220, 220), 2)
         # Draw circles and labels
         for pt, label in zip(auto_pts, labels, strict=True):
-            cv2.circle(img, pt, 10, (0, 220, 220), 2)
+            cv2.circle(img, pt, _CORNER_POINT_RADIUS, (0, 220, 220), 2)
             cv2.putText(img, f"AUTO:{label}", (pt[0] + 12, pt[1] - 6),
                         _FONT, _FONT_SCALE - 0.1, (0, 220, 220), _FONT_THICK, cv2.LINE_AA)
 
@@ -106,14 +110,14 @@ def _draw_overlay(
     for i, pt in enumerate(display_clicks):
         label = CORNER_ORDER[i]
         circle_color = (0, 220, 0) if len(clicks) == 4 else (255, 255, 255)
-        cv2.circle(img, pt, 10, (0, 0, 0), -1)   # black border
+        cv2.circle(img, pt, _CORNER_POINT_RADIUS, (0, 0, 0), -1)   # black border
         cv2.circle(img, pt, 8, circle_color, -1)
         cv2.putText(img, f"{i + 1}:{label}", (pt[0] + 12, pt[1] - 6),
                     _FONT, _FONT_SCALE - 0.05, circle_color, _FONT_THICK, cv2.LINE_AA)
 
     # ── Status bar ──
     overlay = img.copy()
-    cv2.rectangle(overlay, (0, h - _STATUS_H), (w, h), (30, 30, 30), -1)
+    cv2.rectangle(overlay, (0, h - _STATUS_BAR_HEIGHT), (w, h), (30, 30, 30), -1)
     cv2.addWeighted(overlay, 0.75, img, 0.25, 0, img)
 
     if initial_corners is not None and len(clicks) == 0:
@@ -129,7 +133,7 @@ def _draw_overlay(
 
     # ── Top header bar ──
     overlay2 = img.copy()
-    cv2.rectangle(overlay2, (0, 0), (w, 28), (30, 30, 30), -1)
+    cv2.rectangle(overlay2, (0, 0), (w, _HEADER_BAR_HEIGHT), (30, 30, 30), -1)
     cv2.addWeighted(overlay2, 0.75, img, 0.25, 0, img)
     cv2.putText(img, "RallyLens  Court Calibration", (10, 20),
                 _FONT, _FONT_SCALE, (200, 200, 200), _FONT_THICK, cv2.LINE_AA)
@@ -221,7 +225,7 @@ def pick_court_corners_interactively(
     while True:
         img = _draw_overlay(base_display, state.clicks, initial_corners, scale)
         cv2.imshow(window_name, img)
-        key = cv2.waitKey(20) & 0xFF
+        key = cv2.waitKey(_WAITKEY_MS) & 0xFF
 
         # Confirm
         if key in (13, 32):  # Enter or Space
