@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
 from rallylens import __version__
@@ -11,7 +13,6 @@ from rallylens.config import (
     EVENTS_DIR,
     LABEL_FRAMES_DIR,
     LABELQA_DIR,
-    OVERLAYS_DIR,
     RALLIES_DIR,
     RAW_DIR,
     REPORTS_DIR,
@@ -27,7 +28,6 @@ from rallylens.pipeline import (
     render_match_heatmaps,
     run_events_pipeline,
     run_full_pipeline,
-    run_shuttle_pipeline,
 )
 from rallylens.pipeline.io import homography_path, save_homography, save_player_detections
 from rallylens.preprocess.frame_sampler import sample_frames_from_rallies
@@ -38,7 +38,6 @@ from rallylens.vision.court_homography import (
 )
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
 from rallylens.vision.shuttlecock_detector import detect_shuttlecocks
-from rallylens.viz.overlay import render_overlay
 
 _log = get_logger(__name__)
 
@@ -119,54 +118,19 @@ def calibrate_cmd(video_id: str, rally_index: int, frame_idx: int) -> None:
 
 
 @cli.command("detect")
-@click.argument("video_id")
-@click.option("--rally-index", type=int, default=None,
-              help="Process a single rally by index. Omit to process all rallies.")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
     "--tracker",
     type=click.Choice(["none", "bytetrack"]),
     default="bytetrack",
     show_default=True,
 )
-@click.option(
-    "--with-shuttle/--no-shuttle",
-    default=True,
-    help="Run the shuttlecock detector + Kalman tracker.",
-)
-def detect_cmd(
-    video_id: str, rally_index: int | None, tracker: str, with_shuttle: bool
-) -> None:
-    """Run player pose + optional shuttle tracking on rallies.
-
-    Processes all rallies by default. Use --rally-index N to process a single one.
-    """
-    manifest = load_manifest(RALLIES_DIR / video_id)
-    if not manifest:
-        raise click.ClickException(f"no rallies.json in {RALLIES_DIR / video_id}; run `segment` first")
-
-    if rally_index is not None:
-        try:
-            targets = [find_rally(manifest, rally_index)]
-        except LookupError as exc:
-            raise click.ClickException(str(exc)) from exc
-    else:
-        targets = manifest
-
+def detect_cmd(video_path: Path, tracker: str) -> None:
+    """Run player pose tracking on a video file."""
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
-    for target in targets:
-        click.echo(f"processing rally {target.index}/{len(manifest)} ...")
-        player_detections = detect_and_track_players(target.path, tracker=tracker_arg)
-        save_player_detections(player_detections, video_id, target.path.stem)
-
-        shuttle_track = (
-            run_shuttle_pipeline(target.path, video_id) if with_shuttle else None
-        )
-
-        out_path = (
-            ensure_dir(OVERLAYS_DIR / video_id) / f"rally_{target.index:03d}_overlay.mp4"
-        )
-        render_overlay(target.path, player_detections, out_path, shuttle_track=shuttle_track)
-        click.echo(f"overlay: {out_path}")
+    player_detections = detect_and_track_players(video_path, tracker=tracker_arg)
+    out_path = save_player_detections(player_detections, video_path.stem, video_path.stem)
+    click.echo(f"detections: {out_path}")
 
 
 @cli.command("events")
@@ -256,43 +220,21 @@ def label_qa_cmd(video_id: str, rally_index: int | None, max_reviews: int) -> No
 
 
 @cli.command("run")
-@click.argument("url")
+@click.argument("url_or_path")
 @click.option(
     "--tracker",
     type=click.Choice(["none", "bytetrack"]),
     default="bytetrack",
     show_default=True,
 )
-@click.option("--with-shuttle/--no-shuttle", default=True)
-@click.option(
-    "--with-report/--no-report",
-    default=True,
-    help="Call Claude to generate a Markdown match report (requires ANTHROPIC_API_KEY).",
-)
-def run_cmd(url: str, tracker: str, with_shuttle: bool, with_report: bool) -> None:
-    """End-to-end: download -> segment -> track -> events -> heatmaps -> report."""
-    if not is_likely_youtube_url(url):
-        raise click.ClickException(
-            f"{url!r} does not look like a YouTube URL (watch/shorts/embed/youtu.be)"
-        )
+def run_cmd(url_or_path: str, tracker: str) -> None:
+    """Download (or use local file) and run player tracking on a full match video."""
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
     try:
-        result = run_full_pipeline(
-            url,
-            tracker=tracker_arg,
-            with_shuttle=with_shuttle,
-            with_report=with_report,
-        )
+        result = run_full_pipeline(url_or_path, tracker=tracker_arg)
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from exc
-
-    click.echo(f"processed {result.rally_count} rallies for {result.video_id}")
-    if result.heatmap_path is not None:
-        click.echo(f"heatmap: {result.heatmap_path}")
-    if result.report_path is not None:
-        click.echo(f"report: {result.report_path}")
-    elif result.report_error:
-        click.echo(f"report skipped ({result.report_error})", err=True)
+    click.echo(f"detections saved for {result.video_id}: {result.detections_path}")
 
 
 def main() -> None:

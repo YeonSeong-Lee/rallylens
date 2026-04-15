@@ -98,10 +98,31 @@ def test_calibrate_cmd_missing_rally_index(
 # ---------------------------------------------------------------------------
 
 
-def test_detect_cmd_missing_manifest(runner: CliRunner, video_id: str):
-    result = runner.invoke(cli, ["detect", video_id])
+def test_detect_cmd_missing_file(runner: CliRunner):
+    result = runner.invoke(cli, ["detect", "/nonexistent/path/to/video.mp4"])
     assert result.exit_code != 0
-    assert "rallies.json" in result.output or "run `segment`" in result.output
+    assert "does not exist" in result.output
+
+
+def test_detect_cmd_happy_path(
+    runner: CliRunner, isolated_data: Path, monkeypatch: pytest.MonkeyPatch
+):
+    video_path = isolated_data / "raw" / "match.mp4"
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    video_path.touch()
+
+    monkeypatch.setattr(
+        "rallylens.cli.detect_and_track_players",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "rallylens.cli.save_player_detections",
+        lambda *_args, **_kwargs: isolated_data / "detections" / "match" / "match_players.jsonl",
+    )
+
+    result = runner.invoke(cli, ["detect", str(video_path)])
+    assert result.exit_code == 0, result.output
+    assert "detections:" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -299,27 +320,23 @@ def test_label_qa_cmd_missing_rally_index(runner: CliRunner, video_id: str):
 # ---------------------------------------------------------------------------
 
 
-def test_run_cmd_zero_rallies(
+def test_run_cmd_local_file_happy_path(
     runner: CliRunner, isolated_data: Path, monkeypatch: pytest.MonkeyPatch, video_id: str
 ):
-    """End-to-end run command bails out cleanly when segmentation produces nothing."""
-    meta = VideoMeta(
-        video_id=video_id,
-        title="Empty Match",
-        upload_date=None,
-        duration_s=1.0,
-        url=f"https://youtu.be/{video_id}",
-        source_path=isolated_data / "raw" / f"{video_id}.mp4",
-    )
+    """run command works directly on a local video file without downloading or splitting."""
+    video_path = isolated_data / "raw" / f"{video_id}.mp4"
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    video_path.touch()
+
     monkeypatch.setattr(
-        "rallylens.pipeline.orchestrator.download_video",
-        lambda url, **kwargs: meta,
-    )
-    monkeypatch.setattr(
-        "rallylens.pipeline.orchestrator.segment_rallies",
+        "rallylens.pipeline.orchestrator.detect_and_track_players",
         lambda *_args, **_kwargs: [],
     )
+    monkeypatch.setattr(
+        "rallylens.pipeline.orchestrator.save_player_detections",
+        lambda *_args, **_kwargs: isolated_data / "detections" / video_id / f"{video_id}_players.jsonl",
+    )
 
-    result = runner.invoke(cli, ["run", f"https://youtu.be/{video_id}"])
-    assert result.exit_code != 0
-    assert "no rallies detected" in result.output
+    result = runner.invoke(cli, ["run", str(video_path)])
+    assert result.exit_code == 0, result.output
+    assert "detections saved" in result.output

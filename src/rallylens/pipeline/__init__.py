@@ -15,7 +15,6 @@ from rallylens.pipeline.io import (
     save_video_meta,
 )
 from rallylens.pipeline.orchestrator import run_full_pipeline
-from rallylens.pipeline.shuttle import run_shuttle_pipeline
 
 __all__ = [
     "load_all_stats",
@@ -24,6 +23,5 @@ __all__ = [
     "render_match_heatmaps",
     "run_events_pipeline",
     "run_full_pipeline",
-    "run_shuttle_pipeline",
     "save_video_meta",
 ]
