@@ -10,7 +10,7 @@ from rallylens import __version__
 from rallylens.common import get_logger, load_env
 from rallylens.domain.video import is_likely_youtube_url
 from rallylens.ingest.downloader import download_video
-from rallylens.pipeline import run_court_detection, run_full_pipeline, run_shuttle_pipeline
+from rallylens.pipeline import run_court_detection, run_court_detection_interactive, run_full_pipeline, run_shuttle_pipeline
 from rallylens.pipeline.io import court_corners_path, save_player_detections, shuttle_track_path
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
 
@@ -76,13 +76,25 @@ def detect_shuttle_cmd(video_path: Path, weights: Path | None) -> None:
     show_default=True,
     help="Number of frames to sample for court detection.",
 )
-def calibrate_cmd(video_path: Path, samples: int) -> None:
+@click.option(
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Open an OpenCV window to manually click or confirm court corners.",
+)
+def calibrate_cmd(video_path: Path, samples: int, interactive: bool) -> None:
     """Auto-detect badminton court corners and save calibration data."""
-    corners = run_court_detection(video_path, video_path.stem, sample_count=samples)
-    if corners is None:
-        raise click.ClickException(
-            "court corner detection failed — try a different video or increase --samples"
-        )
+    if interactive:
+        corners = run_court_detection_interactive(video_path, video_path.stem, sample_count=samples)
+        if corners is None:
+            raise click.ClickException("interactive calibration cancelled by user")
+    else:
+        corners = run_court_detection(video_path, video_path.stem, sample_count=samples)
+        if corners is None:
+            raise click.ClickException(
+                "court corner detection failed — try a different video, increase --samples,"
+                " or use --interactive to pick manually"
+            )
     out_path = court_corners_path(video_path.stem)
     click.echo(f"court corners: {out_path}")
 
