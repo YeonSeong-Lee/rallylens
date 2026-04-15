@@ -9,7 +9,7 @@ import click
 from rallylens import __version__
 from rallylens.common import get_logger, load_env
 from rallylens.domain.video import is_likely_youtube_url
-from rallylens.ingest.downloader import download_video
+from rallylens.ingest.downloader import download_video, parse_time
 from rallylens.pipeline import run_court_detection, run_court_detection_interactive, run_full_pipeline, run_shuttle_pipeline
 from rallylens.pipeline.io import court_corners_path, save_player_detections, shuttle_track_path
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
@@ -26,13 +26,34 @@ def cli() -> None:
 @cli.command("ingest")
 @click.argument("url")
 @click.option("--force/--no-force", default=False, help="Ignore cache and re-download.")
-def ingest_cmd(url: str, force: bool) -> None:
-    """Download a YouTube match to data/raw/{video_id}.mp4."""
+@click.option(
+    "--start",
+    "start_time",
+    default=None,
+    help="Start time: seconds (90) or MM:SS / HH:MM:SS (1:30).",
+)
+@click.option(
+    "--end",
+    "end_time",
+    default=None,
+    help="End time: seconds (120) or MM:SS / HH:MM:SS (2:00).",
+)
+def ingest_cmd(url: str, force: bool, start_time: str | None, end_time: str | None) -> None:
+    """Download a YouTube match to data/raw/{video_id}.mp4.
+
+    Use --start / --end to download only a specific time range.
+    The clip is saved as {video_id}_{start}s_{end}s.mp4 so full and clipped
+    downloads can coexist in the cache.
+    """
     if not is_likely_youtube_url(url):
         raise click.ClickException(
             f"{url!r} does not look like a YouTube URL (watch/shorts/embed/youtu.be)"
         )
-    meta = download_video(url, force=force)
+    start_s = parse_time(start_time) if start_time is not None else None
+    end_s = parse_time(end_time) if end_time is not None else None
+    if start_s is not None and end_s is not None and end_s <= start_s:
+        raise click.ClickException("--end must be greater than --start")
+    meta = download_video(url, force=force, start_s=start_s, end_s=end_s)
     click.echo(f"ok: {meta.source_path}")
 
 
