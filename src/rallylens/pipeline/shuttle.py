@@ -56,6 +56,6 @@ def run_shuttle_pipeline(
     all_points = [points_by_frame[k] for k in sorted(points_by_frame)]
 
     ensure_dir(TRACKS_DIR / video_id)
-    out_path = save_shuttle_track(all_points, video_id, video_path.stem)
+    out_path = save_shuttle_track(all_points, video_id)
     _log.info("saved %d shuttle points → %s", len(all_points), out_path)
     return all_points

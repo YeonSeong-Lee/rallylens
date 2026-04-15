@@ -32,15 +32,13 @@ def run_full_pipeline(
     Otherwise it is treated as a YouTube URL and downloaded first.
     """
     video_path = Path(url_or_path)
-    if video_path.exists():
-        video_id = video_path.stem
-    else:
+    if not video_path.exists():
         meta = download_video(url_or_path)
         video_path = meta.source_path
-        video_id = meta.video_id
+    video_id = video_path.stem
 
     player_detections = detect_and_track_players(
         video_path, tracker=tracker, singles=singles, imgsz=imgsz
     )
-    out_path = save_player_detections(player_detections, video_id, video_path.stem)
+    out_path = save_player_detections(player_detections, video_id)
     return PipelineResult(video_id=video_id, detections_path=out_path)

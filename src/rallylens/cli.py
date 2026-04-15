@@ -89,7 +89,7 @@ def detect_cmd(video_path: Path, tracker: str, singles: bool, imgsz: int) -> Non
     player_detections = detect_and_track_players(
         video_path, tracker=tracker_arg, singles=singles, imgsz=imgsz
     )
-    out_path = save_player_detections(player_detections, video_path.stem, video_path.stem)
+    out_path = save_player_detections(player_detections, video_path.stem)
     click.echo(f"detections: {out_path}")
 
 
@@ -104,7 +104,7 @@ def detect_cmd(video_path: Path, tracker: str, singles: bool, imgsz: int) -> Non
 def detect_shuttle_cmd(video_path: Path, weights: Path | None) -> None:
     """Run TrackNetV3 shuttlecock detection on a video file."""
     track = run_shuttle_pipeline(video_path, video_path.stem, weights)
-    out_path = shuttle_track_path(video_path.stem, video_path.stem)
+    out_path = shuttle_track_path(video_path.stem)
     click.echo(f"shuttle track ({len(track)} points): {out_path}")
 
 
@@ -207,15 +207,15 @@ def viz_cmd(
 
     video_id = video_path.stem
 
-    detections = load_player_detections(video_id, video_id)
-    shuttle_track = load_shuttle_track(video_id, video_id)
+    detections = load_player_detections(video_id)
+    shuttle_track = load_shuttle_track(video_id)
 
     if overlay:
         out = render_overlay_video(
             video_path,
             detections,
             shuttle_track,
-            viz_overlay_path(video_id, video_id),
+            viz_overlay_path(video_id),
             trail_len=trail_len,
         )
         click.echo(f"overlay:  {out}")

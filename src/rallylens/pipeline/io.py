@@ -15,20 +15,18 @@ from rallylens.vision.shuttle_tracker import ShuttlePoint
 # ---------------------------------------------------------------------------
 
 
-def detections_path(video_id: str, video_stem: str) -> Path:
-    return DETECTIONS_DIR / video_id / f"{video_stem}_players.jsonl"
+def detections_path(video_id: str) -> Path:
+    return DETECTIONS_DIR / video_id / f"{video_id}_players.jsonl"
 
 
-def save_player_detections(
-    detections: list[Detection], video_id: str, video_stem: str
-) -> Path:
-    path = detections_path(video_id, video_stem)
+def save_player_detections(detections: list[Detection], video_id: str) -> Path:
+    path = detections_path(video_id)
     save_jsonl(detections, path)
     return path
 
 
-def load_player_detections(video_id: str, video_stem: str) -> list[Detection]:
-    return load_jsonl(detections_path(video_id, video_stem), Detection)
+def load_player_detections(video_id: str) -> list[Detection]:
+    return load_jsonl(detections_path(video_id), Detection)
 
 
 # ---------------------------------------------------------------------------
@@ -36,20 +34,18 @@ def load_player_detections(video_id: str, video_stem: str) -> list[Detection]:
 # ---------------------------------------------------------------------------
 
 
-def shuttle_track_path(video_id: str, video_stem: str) -> Path:
-    return TRACKS_DIR / video_id / f"{video_stem}_shuttle.jsonl"
+def shuttle_track_path(video_id: str) -> Path:
+    return TRACKS_DIR / video_id / f"{video_id}_shuttle.jsonl"
 
 
-def save_shuttle_track(
-    track: list[ShuttlePoint], video_id: str, video_stem: str
-) -> Path:
-    path = shuttle_track_path(video_id, video_stem)
+def save_shuttle_track(track: list[ShuttlePoint], video_id: str) -> Path:
+    path = shuttle_track_path(video_id)
     save_jsonl(track, path)
     return path
 
 
-def load_shuttle_track(video_id: str, video_stem: str) -> list[ShuttlePoint]:
-    return load_jsonl(shuttle_track_path(video_id, video_stem), ShuttlePoint)
+def load_shuttle_track(video_id: str) -> list[ShuttlePoint]:
+    return load_jsonl(shuttle_track_path(video_id), ShuttlePoint)
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +72,8 @@ def load_court_corners(video_id: str) -> CourtCorners:
 # ---------------------------------------------------------------------------
 
 
-def viz_overlay_path(video_id: str, video_stem: str) -> Path:
-    return VIZ_DIR / video_id / f"{video_stem}_overlay.mp4"
+def viz_overlay_path(video_id: str) -> Path:
+    return VIZ_DIR / video_id / f"{video_id}_overlay.mp4"
 
 
 def viz_heatmap_path(video_id: str) -> Path:
