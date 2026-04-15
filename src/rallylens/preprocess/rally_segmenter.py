@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
 import numpy as np
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 from scenedetect import SceneManager, open_video
 from scenedetect.detectors import ContentDetector
 from scenedetect.frame_timecode import FrameTimecode
@@ -18,12 +17,16 @@ from rallylens.common import ensure_dir, get_logger, require_ffmpeg
 _log = get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class RallyClip:
+class RallyClip(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     index: int
     start_s: float
     end_s: float
     path: Path
+
+
+_RALLY_CLIP_LIST = TypeAdapter(list[RallyClip])
 
 
 def _mean_motion_energy(video_path: Path, start_s: float, end_s: float, samples: int = 8) -> float:
@@ -126,34 +129,11 @@ def segment_rallies(
 
 def _write_manifest(out_dir: Path, clips: list[RallyClip]) -> None:
     manifest_path = out_dir / "rallies.json"
-    manifest_path.write_text(
-        json.dumps(
-            [
-                {
-                    "index": c.index,
-                    "start_s": c.start_s,
-                    "end_s": c.end_s,
-                    "path": str(c.path),
-                }
-                for c in clips
-            ],
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    manifest_path.write_bytes(_RALLY_CLIP_LIST.dump_json(clips, indent=2))
 
 
 def load_manifest(out_dir: Path) -> list[RallyClip]:
     manifest_path = out_dir / "rallies.json"
     if not manifest_path.exists():
         return []
-    data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    return [
-        RallyClip(
-            index=int(row["index"]),
-            start_s=float(row["start_s"]),
-            end_s=float(row["end_s"]),
-            path=Path(row["path"]),
-        )
-        for row in data
-    ]
+    return _RALLY_CLIP_LIST.validate_json(manifest_path.read_text(encoding="utf-8"))

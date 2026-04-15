@@ -18,14 +18,15 @@ Court coordinate convention:
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 from rallylens.common import get_logger
+from rallylens.serialization import load_json, save_json
 
 _log = get_logger(__name__)
 
@@ -43,31 +44,28 @@ COURT_CORNERS_M: np.ndarray = np.array(
 )
 
 
-@dataclass(frozen=True)
-class CourtHomography:
+class CourtHomography(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
     image_points: list[tuple[float, float]]
     court_points_m: list[tuple[float, float]]
     H: np.ndarray  # 3x3 image -> court
+
+    @field_validator("H", mode="before")
+    @classmethod
+    def _parse_h(cls, v: Any) -> np.ndarray:
+        if isinstance(v, np.ndarray):
+            return v
+        return np.asarray(v, dtype=np.float64)
+
+    @field_serializer("H")
+    def _serialize_h(self, v: np.ndarray) -> list[list[float]]:
+        return [[float(x) for x in row] for row in v]
 
     def image_to_court(self, xy: tuple[float, float]) -> tuple[float, float]:
         pt = np.array([xy[0], xy[1], 1.0])
         out = self.H @ pt
         return float(out[0] / out[2]), float(out[1] / out[2])
-
-    def to_json_dict(self) -> dict[str, object]:
-        return {
-            "image_points": [list(p) for p in self.image_points],
-            "court_points_m": [list(p) for p in self.court_points_m],
-            "H": self.H.tolist(),
-        }
-
-    @classmethod
-    def from_json_dict(cls, data: dict[str, object]) -> CourtHomography:
-        return cls(
-            image_points=[tuple(p) for p in data["image_points"]],  # type: ignore[misc]
-            court_points_m=[tuple(p) for p in data["court_points_m"]],  # type: ignore[misc]
-            H=np.array(data["H"], dtype=np.float64),
-        )
 
 
 def compute_homography(
@@ -82,19 +80,18 @@ def compute_homography(
     if H is None:
         raise RuntimeError("cv2.findHomography failed (points may be collinear)")
     return CourtHomography(
-        image_points=[tuple(p) for p in image_points],
+        image_points=list(image_points),
         court_points_m=[tuple(p) for p in dst.tolist()],
         H=H,
     )
 
 
 def save_homography(h: CourtHomography, path: Path) -> None:
-    path.write_text(json.dumps(h.to_json_dict(), indent=2), encoding="utf-8")
+    save_json(h, path)
 
 
 def load_homography(path: Path) -> CourtHomography:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return CourtHomography.from_json_dict(data)
+    return load_json(path, CourtHomography)
 
 
 def pick_points_interactive(frame_path: Path) -> list[tuple[float, float]]:

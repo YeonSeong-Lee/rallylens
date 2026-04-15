@@ -9,21 +9,35 @@ precision is garbage until fine-tuning completes.
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
+import contextlib
+from functools import lru_cache
 from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 from rallylens.common import MODELS_DIR, ensure_dir, get_logger
 
 _log = get_logger(__name__)
+
+
+@lru_cache(maxsize=2)
+def _load_yolo_model(weights_path: str) -> Any:
+    """Load + cache a YOLO detection model. Re-used across rallies in one run."""
+    from ultralytics import YOLO
+
+    with contextlib.chdir(MODELS_DIR):
+        return YOLO(weights_path)
+
 
 FINE_TUNED_WEIGHTS = "shuttle_best.pt"
 PRETRAINED_FALLBACK = "yolo11n.pt"
 SHUTTLE_CLASS_ID = 0  # single-class fine-tuning convention
 
 
-@dataclass(frozen=True)
-class ShuttleDetection:
+class ShuttleDetection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     frame_idx: int
     bbox_xyxy: tuple[float, float, float, float]
     confidence: float
@@ -65,16 +79,8 @@ def detect_shuttlecocks(
     if not clip_path.exists():
         raise FileNotFoundError(clip_path)
 
-    from ultralytics import YOLO  # local import keeps module cheap to import
-
     weight_path, is_fine_tuned = resolve_weights(weights)
-
-    prev_cwd = Path.cwd()
-    os.chdir(MODELS_DIR)
-    try:
-        model = YOLO(str(weight_path))
-    finally:
-        os.chdir(prev_cwd)
+    model = _load_yolo_model(str(weight_path))
 
     target_class = SHUTTLE_CLASS_ID if is_fine_tuned else None
     _log.info(

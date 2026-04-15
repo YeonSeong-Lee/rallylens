@@ -13,27 +13,31 @@ approximation of TrackNetV3's 3-frame temporal input.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
 from math import sqrt
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 from rallylens.common import get_logger
+from rallylens.serialization import save_jsonl
 
 _log = get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class ShuttleObservation:
+class ShuttleObservation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     frame_idx: int
     x: float
     y: float
     confidence: float
 
 
-@dataclass(frozen=True)
-class ShuttleTrackPoint:
+class ShuttleTrackPoint(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     frame_idx: int
     x: float
     y: float
@@ -41,6 +45,17 @@ class ShuttleTrackPoint:
     vy: float
     interpolated: bool
     residual: float  # distance between predicted and observed (NaN if interpolated)
+
+    @field_validator("residual", mode="before")
+    @classmethod
+    def _parse_residual(cls, v: Any) -> float:
+        if v is None:
+            return float("nan")
+        return float(v)
+
+    @field_serializer("residual")
+    def _serialize_residual(self, v: float) -> float | None:
+        return None if np.isnan(v) else v
 
 
 class ShuttleKalmanTracker:
@@ -93,13 +108,15 @@ class ShuttleKalmanTracker:
         self._missed = 0
 
     def _predict(self) -> np.ndarray:
-        assert self._x is not None and self._P is not None
+        if self._x is None or self._P is None:
+            raise RuntimeError("Kalman filter not initialized — call step() with a candidate first")
         self._x = self.F @ self._x
         self._P = self.F @ self._P @ self.F.T + self.Q
         return self._x
 
     def _update(self, z: np.ndarray) -> float:
-        assert self._x is not None and self._P is not None
+        if self._x is None or self._P is None:
+            raise RuntimeError("Kalman filter not initialized")
         y = z - self.H @ self._x
         S = self.H @ self._P @ self.H.T + self.R
         K = self._P @ self.H.T @ np.linalg.inv(S)
@@ -125,7 +142,8 @@ class ShuttleKalmanTracker:
                 return None
             best = max(candidates, key=lambda o: o.confidence)
             self._initialize(best)
-            assert self._x is not None
+            if self._x is None:
+                raise RuntimeError("Kalman filter failed to initialize")
             return ShuttleTrackPoint(
                 frame_idx=frame_idx,
                 x=float(self._x[0]),
@@ -157,7 +175,8 @@ class ShuttleKalmanTracker:
                 self.reset()
                 return None
 
-        assert self._x is not None
+        if self._x is None:
+            raise RuntimeError("Kalman filter state is unexpectedly None")
         return ShuttleTrackPoint(
             frame_idx=frame_idx,
             x=float(self._x[0]),
@@ -172,7 +191,7 @@ class ShuttleKalmanTracker:
 def track_shuttle(
     observations_per_frame: dict[int, list[ShuttleObservation]],
     total_frames: int,
-    **tracker_kwargs,
+    **tracker_kwargs: Any,
 ) -> list[ShuttleTrackPoint]:
     """Run a single-object Kalman track across all frames."""
     tracker = ShuttleKalmanTracker(**tracker_kwargs)
@@ -206,21 +225,4 @@ def observations_from_detections(
 
 
 def save_track_jsonl(track: list[ShuttleTrackPoint], path: Path) -> None:
-    import json
-
-    with path.open("w", encoding="utf-8") as f:
-        for p in track:
-            f.write(
-                json.dumps(
-                    {
-                        "frame_idx": p.frame_idx,
-                        "x": p.x,
-                        "y": p.y,
-                        "vx": p.vx,
-                        "vy": p.vy,
-                        "interpolated": p.interpolated,
-                        "residual": None if np.isnan(p.residual) else p.residual,
-                    }
-                )
-                + "\n"
-            )
+    save_jsonl(track, path)

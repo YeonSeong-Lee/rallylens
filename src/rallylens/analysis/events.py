@@ -19,20 +19,22 @@ adjacent frames.
 
 from __future__ import annotations
 
-import json
 import math
-from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from rallylens.common import get_logger
+from rallylens.serialization import load_jsonl, save_json, save_jsonl
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.kalman_tracker import ShuttleTrackPoint
 
 _log = get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class HitEvent:
+class HitEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     frame_idx: int
     time_s: float
     kind: str  # "hit"
@@ -42,8 +44,7 @@ class HitEvent:
     player_side: str | None  # "top" | "bottom" | None
 
 
-@dataclass
-class RallyStats:
+class RallyStats(BaseModel):
     video_id: str
     rally_index: int
     duration_s: float
@@ -54,23 +55,7 @@ class RallyStats:
     avg_inter_shot_gap_s: float | None
     top_side_shots: int
     bottom_side_shots: int
-    events: list[HitEvent] = field(default_factory=list)
-
-    def to_json_dict(self) -> dict[str, object]:
-        d = asdict(self)
-        d["events"] = [
-            {
-                "frame_idx": e.frame_idx,
-                "time_s": e.time_s,
-                "kind": e.kind,
-                "position_xy": list(e.position_xy),
-                "velocity_xy": list(e.velocity_xy),
-                "signals": list(e.signals),
-                "player_side": e.player_side,
-            }
-            for e in self.events
-        ]
-        return d
+    events: list[HitEvent] = Field(default_factory=list)
 
 
 def _velocity_direction_reversals(
@@ -203,49 +188,15 @@ def aggregate_rally_stats(
 
 
 def save_events_jsonl(events: list[HitEvent], path: Path) -> None:
-    with path.open("w", encoding="utf-8") as f:
-        for e in events:
-            f.write(
-                json.dumps(
-                    {
-                        "frame_idx": e.frame_idx,
-                        "time_s": e.time_s,
-                        "kind": e.kind,
-                        "position_xy": list(e.position_xy),
-                        "velocity_xy": list(e.velocity_xy),
-                        "signals": list(e.signals),
-                        "player_side": e.player_side,
-                    }
-                )
-                + "\n"
-            )
+    save_jsonl(events, path)
 
 
 def load_events_jsonl(path: Path) -> list[HitEvent]:
-    events: list[HitEvent] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        events.append(
-            HitEvent(
-                frame_idx=int(row["frame_idx"]),
-                time_s=float(row["time_s"]),
-                kind=str(row["kind"]),
-                position_xy=(float(row["position_xy"][0]), float(row["position_xy"][1])),
-                velocity_xy=(float(row["velocity_xy"][0]), float(row["velocity_xy"][1])),
-                signals=tuple(row.get("signals", [])),
-                player_side=row.get("player_side"),
-            )
-        )
-    return events
+    return load_jsonl(path, HitEvent)
 
 
 def save_rally_stats(stats: RallyStats, path: Path) -> None:
-    path.write_text(
-        json.dumps(stats.to_json_dict(), indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    save_json(stats, path)
 
 
 def player_side_counts(player_detections: list[Detection], frame_height: int) -> tuple[int, int]:

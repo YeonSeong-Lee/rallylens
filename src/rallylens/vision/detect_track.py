@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import contextlib
-import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
 
 from rallylens.common import MODELS_DIR, ensure_dir, get_logger
 
@@ -15,24 +15,22 @@ _log = get_logger(__name__)
 TrackerName = Literal["bytetrack", "botsort", None]
 
 
-@dataclass(frozen=True)
-class Detection:
+def coerce_tracker_name(name: str | None) -> TrackerName:
+    """Validate a CLI-supplied tracker name into a `TrackerName` literal."""
+    if name is None or name in ("bytetrack", "botsort"):
+        return name  # type: ignore[return-value]
+    raise ValueError(f"unknown tracker: {name!r}")
+
+
+class Detection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     frame_idx: int
     bbox_xyxy: tuple[float, float, float, float]
     confidence: float
     keypoints_xy: list[tuple[float, float]]
     keypoints_conf: list[float]
     track_id: int | None = None
-
-
-@contextlib.contextmanager
-def _chdir(path: Path):
-    prev = Path.cwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(prev)
 
 
 def _tracker_config_name(tracker: TrackerName) -> str | None:
@@ -69,7 +67,7 @@ def detect_and_track_players(
     from ultralytics import YOLO
 
     weight_path = MODELS_DIR / weights
-    with _chdir(MODELS_DIR):
+    with contextlib.chdir(MODELS_DIR):
         model = YOLO(str(weight_path) if weight_path.exists() else weights)
 
     tracker_cfg = _tracker_config_name(tracker)
