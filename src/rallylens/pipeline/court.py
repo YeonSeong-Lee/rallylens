@@ -10,7 +10,7 @@ from pathlib import Path
 
 import cv2
 
-from rallylens.common import ensure_dir, get_logger, read_video_properties
+from rallylens.common import ensure_dir, get_logger, open_video, read_video_properties
 from rallylens.config import CALIBRATION_DIR
 from rallylens.pipeline.io import save_court_corners
 from rallylens.vision.court_detector import CourtCorners, detect_court_corners
@@ -40,25 +40,20 @@ def run_court_detection(
     props = read_video_properties(video_path)
     step = max(1, props.frame_count // sample_count)
 
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        raise RuntimeError(f"cannot open video: {video_path}")
-
     corners: CourtCorners | None = None
-    for i in range(sample_count):
-        target = i * step
-        cap.set(cv2.CAP_PROP_POS_FRAMES, target)
-        ret, frame = cap.read()
-        if not ret:
-            continue
-        result = detect_court_corners(frame)
-        if result is not None:
-            corners = result
-            _log.info("court corners detected from frame %d", target)
-            break
-        _log.debug("frame %d: no court corners detected", target)
-
-    cap.release()
+    with open_video(video_path) as cap:
+        for i in range(sample_count):
+            target = i * step
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            result = detect_court_corners(frame)
+            if result is not None:
+                corners = result
+                _log.info("court corners detected from frame %d", target)
+                break
+            _log.debug("frame %d: no court corners detected", target)
 
     if corners is None:
         _log.warning("court detection failed on all %d sampled frames", sample_count)
@@ -90,30 +85,25 @@ def run_court_detection_interactive(
     props = read_video_properties(video_path)
     step = max(1, props.frame_count // sample_count)
 
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        raise RuntimeError(f"cannot open video: {video_path}")
-
     auto_corners: CourtCorners | None = None
     best_frame = None
 
-    for i in range(sample_count):
-        target = i * step
-        cap.set(cv2.CAP_PROP_POS_FRAMES, target)
-        ret, frame = cap.read()
-        if not ret:
-            continue
-        if best_frame is None:
-            best_frame = frame
-        result = detect_court_corners(frame)
-        if result is not None:
-            auto_corners = result
-            best_frame = frame
-            _log.info("court corners auto-detected from frame %d", target)
-            break
-        _log.debug("frame %d: no court corners detected", target)
-
-    cap.release()
+    with open_video(video_path) as cap:
+        for i in range(sample_count):
+            target = i * step
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            if best_frame is None:
+                best_frame = frame
+            result = detect_court_corners(frame)
+            if result is not None:
+                auto_corners = result
+                best_frame = frame
+                _log.info("court corners auto-detected from frame %d", target)
+                break
+            _log.debug("frame %d: no court corners detected", target)
 
     if best_frame is None:
         raise RuntimeError(f"could not read any frame from {video_path}")

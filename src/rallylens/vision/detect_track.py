@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -19,7 +19,7 @@ TrackerName = Literal["bytetrack", "botsort", None]
 def coerce_tracker_name(name: str | None) -> TrackerName:
     """Validate a CLI-supplied tracker name into a `TrackerName` literal."""
     if name is None or name in ("bytetrack", "botsort"):
-        return name  # type: ignore[return-value]
+        return cast(TrackerName, name)
     raise ValueError(f"unknown tracker: {name!r}")
 
 
@@ -74,11 +74,10 @@ def detect_and_track_players(
 ) -> list[Detection]:
     """Run YOLO11-pose on every frame; return flat list of per-frame detections.
 
-    When `tracker` is None (Week 1 behavior): uses `model.predict()`, no track IDs.
-    When `tracker="bytetrack"` (Week 2): uses `model.track(tracker="bytetrack.yaml")`,
-    which assigns stable `track_id`s to each detection via ultralytics' built-in
-    ByteTrack implementation. Used to keep singles players' IDs consistent across
-    missed detections.
+    When `tracker` is None: uses `model.predict()` — no track IDs.
+    When `tracker="bytetrack"`: uses `model.track(tracker="bytetrack.yaml")`, which
+    assigns stable `track_id`s via ultralytics' built-in ByteTrack. Used to keep
+    singles players' IDs consistent across missed detections.
 
     When `singles=True` (default) and a tracker is active, `select_two_players()`
     is applied as a final pass to discard any non-player tracks (judges, ball
@@ -122,6 +121,7 @@ def detect_and_track_players(
 
     detections: list[Detection] = []
     frames_seen = 0
+    warned_missing_ids = False
     for frame_idx, result in enumerate(results):
         frames_seen = frame_idx + 1
         boxes = result.boxes
@@ -131,11 +131,18 @@ def detect_and_track_players(
 
         xyxy = boxes.xyxy.cpu().numpy()
         confs = boxes.conf.cpu().numpy()
-        ids = (
-            boxes.id.cpu().numpy().astype(int).tolist()
-            if getattr(boxes, "id", None) is not None
-            else None
-        )
+        if getattr(boxes, "id", None) is not None:
+            ids = boxes.id.cpu().numpy().astype(int).tolist()
+        else:
+            ids = None
+            if tracker_cfg is not None and not warned_missing_ids:
+                _log.warning(
+                    "tracker=%s requested but boxes.id is None on frame %d — "
+                    "track IDs unavailable; singles post-processing will fail silently",
+                    tracker_cfg,
+                    frame_idx,
+                )
+                warned_missing_ids = True
 
         if kps is not None and kps.xy is not None:
             kp_xy = kps.xy.cpu().numpy()

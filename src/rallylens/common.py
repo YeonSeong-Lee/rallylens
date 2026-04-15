@@ -7,22 +7,27 @@ Intentionally small — each concern lives in its own module:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+import cv2
+import numpy as np
 from dotenv import load_dotenv
 
 from rallylens.config import PROJECT_ROOT
 from rallylens.domain.video import VideoProperties
 
-if TYPE_CHECKING:
-    import numpy as np
+_LOGGERS: dict[str, logging.Logger] = {}
 
 
 def get_logger(name: str) -> logging.Logger:
+    cached = _LOGGERS.get(name)
+    if cached is not None:
+        return cached
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
@@ -33,6 +38,7 @@ def get_logger(name: str) -> logging.Logger:
         logger.propagate = False
     level_name = os.environ.get("RALLYLENS_LOG_LEVEL", "INFO").upper()
     logger.setLevel(getattr(logging, level_name, logging.INFO))
+    _LOGGERS[name] = logger
     return logger
 
 
@@ -52,20 +58,55 @@ def require_ffmpeg() -> None:
         )
 
 
-def read_video_properties(path: Path) -> VideoProperties:
-    """Open a video, read its metadata, and release the capture cleanly."""
-    import cv2
+@contextlib.contextmanager
+def open_video(path: Path) -> Iterator[cv2.VideoCapture]:
+    """Open a cv2.VideoCapture for `path` and guarantee release on exit.
 
+    Raises:
+        FileNotFoundError: the video file is missing.
+        RuntimeError: cv2 failed to open the file.
+    """
+    if not path.exists():
+        raise FileNotFoundError(path)
     cap = cv2.VideoCapture(str(path))
     try:
+        if not cap.isOpened():
+            raise RuntimeError(f"cannot open video: {path}")
+        yield cap
+    finally:
+        cap.release()
+
+
+@contextlib.contextmanager
+def open_video_writer(
+    path: Path,
+    fourcc: str,
+    fps: float,
+    size: tuple[int, int],
+) -> Iterator[cv2.VideoWriter]:
+    """Open a cv2.VideoWriter for `path` and guarantee release on exit."""
+    ensure_dir(path.parent)
+    writer = cv2.VideoWriter(
+        str(path),
+        cv2.VideoWriter.fourcc(*fourcc),
+        fps,
+        size,
+    )
+    try:
+        yield writer
+    finally:
+        writer.release()
+
+
+def read_video_properties(path: Path) -> VideoProperties:
+    """Open a video, read its metadata, and release the capture cleanly."""
+    with open_video(path) as cap:
         return VideoProperties(
             fps=cap.get(cv2.CAP_PROP_FPS) or 30.0,
             width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             frame_count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
         )
-    finally:
-        cap.release()
 
 
 def read_frame_at(path: Path, frame_idx: int) -> np.ndarray:
@@ -75,16 +116,9 @@ def read_frame_at(path: Path, frame_idx: int) -> np.ndarray:
         FileNotFoundError: the video file is missing.
         RuntimeError: the frame could not be decoded (corrupt file or OOB index).
     """
-    import cv2
-
-    if not path.exists():
-        raise FileNotFoundError(path)
-    cap = cv2.VideoCapture(str(path))
-    try:
+    with open_video(path) as cap:
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ok, frame = cap.read()
-    finally:
-        cap.release()
     if not ok or frame is None:
         raise RuntimeError(f"could not read frame {frame_idx} from {path}")
     return frame

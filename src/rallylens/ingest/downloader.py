@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import download_range_func
@@ -28,6 +29,8 @@ def parse_time(value: str | float | int) -> float:
     - A plain number (int or float) as seconds: ``90``, ``90.5``
     - ``"MM:SS"`` or ``"HH:MM:SS"`` string: ``"1:30"``, ``"0:01:30"``
     """
+    if isinstance(value, bool):
+        raise TypeError(f"expected str/int/float, got bool: {value!r}")
     if isinstance(value, (int, float)):
         return float(value)
     parts = str(value).strip().split(":")
@@ -101,7 +104,7 @@ def download_video(
             _log.info("cache hit for %s (%s)", clip_id, cached.title)
             return cached
 
-    ydl_opts: dict = {
+    ydl_opts: dict[str, Any] = {
         "format": _FORMAT_SELECTOR,
         "merge_output_format": "mp4",
         "outtmpl": str(out_dir / f"{clip_id}.%(ext)s"),

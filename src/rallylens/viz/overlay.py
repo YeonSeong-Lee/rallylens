@@ -12,7 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from rallylens.common import ensure_dir, read_video_properties
+from rallylens.common import open_video, open_video_writer, read_video_properties
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
@@ -102,23 +102,17 @@ def render_overlay_video(
     Returns out_path on success.
     """
     props = read_video_properties(video_path)
-    ensure_dir(out_path.parent)
-
-    writer = cv2.VideoWriter(
-        str(out_path),
-        cv2.VideoWriter_fourcc(*fourcc),
-        props.fps,
-        (props.width, props.height),
-    )
 
     detections_by_frame = group_detections_by_frame(detections)
     shuttle_by_frame: dict[int, ShuttlePoint] = {pt.frame_idx: pt for pt in shuttle_track}
 
-    cap = cv2.VideoCapture(str(video_path))
     trail: collections.deque[ShuttlePoint] = collections.deque(maxlen=trail_len)
     frame_idx = 0
 
-    try:
+    with (
+        open_video(video_path) as cap,
+        open_video_writer(out_path, fourcc, props.fps, (props.width, props.height)) as writer,
+    ):
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -135,8 +129,5 @@ def render_overlay_video(
 
             writer.write(frame)
             frame_idx += 1
-    finally:
-        cap.release()
-        writer.release()
 
     return out_path
