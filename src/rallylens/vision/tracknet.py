@@ -38,10 +38,11 @@ class Double2DConv(nn.Module):
 
     def __init__(self, in_dim: int, out_dim: int) -> None:
         super().__init__()
-        self.block = nn.Sequential(Conv2DBlock(in_dim, out_dim), Conv2DBlock(out_dim, out_dim))
+        self.conv_1 = Conv2DBlock(in_dim, out_dim)
+        self.conv_2 = Conv2DBlock(out_dim, out_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.block(x)
+        return self.conv_2(self.conv_1(x))
 
 
 class Triple2DConv(nn.Module):
@@ -49,14 +50,12 @@ class Triple2DConv(nn.Module):
 
     def __init__(self, in_dim: int, out_dim: int) -> None:
         super().__init__()
-        self.block = nn.Sequential(
-            Conv2DBlock(in_dim, out_dim),
-            Conv2DBlock(out_dim, out_dim),
-            Conv2DBlock(out_dim, out_dim),
-        )
+        self.conv_1 = Conv2DBlock(in_dim, out_dim)
+        self.conv_2 = Conv2DBlock(out_dim, out_dim)
+        self.conv_3 = Conv2DBlock(out_dim, out_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.block(x)
+        return self.conv_3(self.conv_2(self.conv_1(x)))
 
 
 # ---------------------------------------------------------------------------

@@ -32,8 +32,10 @@ _log = get_logger(__name__)
 INFER_H = 288
 INFER_W = 512
 
-# Default rolling window (sequence length)
-SEQ_LEN = 8
+# TrackNetV3 checkpoint: 9 frames → 8 heatmaps
+# (first frame in the window has no corresponding output heatmap)
+SEQ_LEN = 9   # number of input frames stacked
+OUT_LEN = 8   # number of output heatmaps
 
 # Heatmap detection threshold
 HEATMAP_THRESH = 0.5
@@ -104,7 +106,7 @@ class ShuttleTracker:
             )
             return
 
-        model = TrackNet(in_dim=3 * SEQ_LEN, out_dim=SEQ_LEN)
+        model = TrackNet(in_dim=3 * SEQ_LEN, out_dim=OUT_LEN)
         with contextlib.chdir(MODELS_DIR):
             model.load_state_dict(torch.load(resolved, map_location="cpu"))
         model.eval()
@@ -148,7 +150,9 @@ class ShuttleTracker:
             output = self._model(tensor)  # (1, SEQ_LEN, H, W)
 
         points: list[ShuttlePoint] = []
-        for i in range(SEQ_LEN):
+        # OUT_LEN heatmaps correspond to buffer frames [1 .. SEQ_LEN-1]
+        # (the first input frame has no paired output heatmap)
+        for i in range(OUT_LEN):
             heatmap = output[0, i].cpu().numpy()  # (H, W) float in [0,1]
             xy = _predict_location(heatmap)
             if xy is None:
@@ -156,6 +160,6 @@ class ShuttleTracker:
             # Rescale from inference resolution to original
             x = int(xy[0] * orig_w / INFER_W)
             y = int(xy[1] * orig_h / INFER_H)
-            points.append(ShuttlePoint(frame_idx=self._idx_buffer[i], x=x, y=y))
+            points.append(ShuttlePoint(frame_idx=self._idx_buffer[i + 1], x=x, y=y))
 
         return points
