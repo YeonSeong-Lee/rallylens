@@ -120,7 +120,8 @@ def calibrate_cmd(video_id: str, rally_index: int, frame_idx: int) -> None:
 
 @cli.command("detect")
 @click.argument("video_id")
-@click.option("--rally-index", type=int, default=1, show_default=True)
+@click.option("--rally-index", type=int, default=None,
+              help="Process a single rally by index. Omit to process all rallies.")
 @click.option(
     "--tracker",
     type=click.Choice(["none", "bytetrack"]),
@@ -133,28 +134,39 @@ def calibrate_cmd(video_id: str, rally_index: int, frame_idx: int) -> None:
     help="Run the shuttlecock detector + Kalman tracker.",
 )
 def detect_cmd(
-    video_id: str, rally_index: int, tracker: str, with_shuttle: bool
+    video_id: str, rally_index: int | None, tracker: str, with_shuttle: bool
 ) -> None:
-    """Run player pose + optional shuttle tracking on a cached rally."""
+    """Run player pose + optional shuttle tracking on rallies.
+
+    Processes all rallies by default. Use --rally-index N to process a single one.
+    """
     manifest = load_manifest(RALLIES_DIR / video_id)
-    try:
-        target = find_rally(manifest, rally_index)
-    except LookupError as exc:
-        raise click.ClickException(str(exc)) from exc
+    if not manifest:
+        raise click.ClickException(f"no rallies.json in {RALLIES_DIR / video_id}; run `segment` first")
+
+    if rally_index is not None:
+        try:
+            targets = [find_rally(manifest, rally_index)]
+        except LookupError as exc:
+            raise click.ClickException(str(exc)) from exc
+    else:
+        targets = manifest
 
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
-    player_detections = detect_and_track_players(target.path, tracker=tracker_arg)
-    save_player_detections(player_detections, video_id, target.path.stem)
+    for target in targets:
+        click.echo(f"processing rally {target.index}/{len(manifest)} ...")
+        player_detections = detect_and_track_players(target.path, tracker=tracker_arg)
+        save_player_detections(player_detections, video_id, target.path.stem)
 
-    shuttle_track = (
-        run_shuttle_pipeline(target.path, video_id) if with_shuttle else None
-    )
+        shuttle_track = (
+            run_shuttle_pipeline(target.path, video_id) if with_shuttle else None
+        )
 
-    out_path = (
-        ensure_dir(OVERLAYS_DIR / video_id) / f"rally_{rally_index:03d}_overlay.mp4"
-    )
-    render_overlay(target.path, player_detections, out_path, shuttle_track=shuttle_track)
-    click.echo(f"overlay: {out_path}")
+        out_path = (
+            ensure_dir(OVERLAYS_DIR / video_id) / f"rally_{target.index:03d}_overlay.mp4"
+        )
+        render_overlay(target.path, player_detections, out_path, shuttle_track=shuttle_track)
+        click.echo(f"overlay: {out_path}")
 
 
 @cli.command("events")
@@ -210,24 +222,37 @@ def report_cmd(video_id: str) -> None:
 
 @cli.command("label-qa")
 @click.argument("video_id")
-@click.option("--rally-index", type=int, default=1, show_default=True)
+@click.option("--rally-index", type=int, default=None,
+              help="Process a single rally by index. Omit to process all rallies.")
 @click.option("--max-reviews", type=int, default=40, show_default=True)
-def label_qa_cmd(video_id: str, rally_index: int, max_reviews: int) -> None:
-    """Claude-reviewed shuttle label QA (Week 3). Flags suspicious predictions to JSONL."""
-    manifest = load_manifest(RALLIES_DIR / video_id)
-    try:
-        target = find_rally(manifest, rally_index)
-    except LookupError as exc:
-        raise click.ClickException(str(exc)) from exc
+def label_qa_cmd(video_id: str, rally_index: int | None, max_reviews: int) -> None:
+    """Claude-reviewed shuttle label QA (Week 3). Flags suspicious predictions to JSONL.
 
-    detections = detect_shuttlecocks(target.path)
-    if not detections:
-        raise click.ClickException("no shuttle detections to review")
-    out_path = (
-        ensure_dir(LABELQA_DIR / video_id) / f"rally_{rally_index:03d}_label_qa.jsonl"
-    )
-    review_detections(target.path, detections, out_path, max_reviews=max_reviews)
-    click.echo(f"label QA: {out_path}")
+    Processes all rallies by default. Use --rally-index N to process a single one.
+    """
+    manifest = load_manifest(RALLIES_DIR / video_id)
+    if not manifest:
+        raise click.ClickException(f"no rallies.json in {RALLIES_DIR / video_id}; run `segment` first")
+
+    if rally_index is not None:
+        try:
+            targets = [find_rally(manifest, rally_index)]
+        except LookupError as exc:
+            raise click.ClickException(str(exc)) from exc
+    else:
+        targets = manifest
+
+    for target in targets:
+        click.echo(f"processing rally {target.index}/{len(manifest)} ...")
+        detections = detect_shuttlecocks(target.path)
+        if not detections:
+            click.echo(f"  no shuttle detections in rally {target.index}, skipping")
+            continue
+        out_path = (
+            ensure_dir(LABELQA_DIR / video_id) / f"rally_{target.index:03d}_label_qa.jsonl"
+        )
+        review_detections(target.path, detections, out_path, max_reviews=max_reviews)
+        click.echo(f"label QA: {out_path}")
 
 
 @cli.command("run")
