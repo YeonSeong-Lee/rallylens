@@ -7,16 +7,28 @@ import logging
 import os
 import re
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    import numpy as np
 
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 DATA_DIR: Path = PROJECT_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"
 RALLIES_DIR: Path = DATA_DIR / "rallies"
 OVERLAYS_DIR: Path = DATA_DIR / "overlays"
+CALIBRATION_DIR: Path = DATA_DIR / "calibration"
+LABEL_FRAMES_DIR: Path = DATA_DIR / "label_frames"
+DETECTIONS_DIR: Path = DATA_DIR / "detections"
+TRACKS_DIR: Path = DATA_DIR / "tracks"
+EVENTS_DIR: Path = DATA_DIR / "events"
+REPORTS_DIR: Path = DATA_DIR / "reports"
+HEATMAPS_DIR: Path = DATA_DIR / "heatmaps"
+LABELQA_DIR: Path = DATA_DIR / "label_qa"
 MODELS_DIR: Path = PROJECT_ROOT / "models"
 OUTPUTS_DEMO_DIR: Path = PROJECT_ROOT / "outputs" / "demo"
 
@@ -62,6 +74,11 @@ def video_id_from_url(url: str) -> str:
     return hashlib.sha1(url.encode("utf-8")).hexdigest()[:11]
 
 
+def is_likely_youtube_url(url: str) -> bool:
+    """Return True if `url` looks like a YouTube URL we know how to handle."""
+    return any(pattern.search(url) for pattern in _YOUTUBE_ID_PATTERNS)
+
+
 def require_ffmpeg() -> None:
     if shutil.which("ffmpeg") is None:
         raise RuntimeError(
@@ -69,8 +86,9 @@ def require_ffmpeg() -> None:
         )
 
 
-@dataclass(frozen=True)
-class VideoMeta:
+class VideoMeta(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     video_id: str
     title: str
     upload_date: str | None
@@ -78,25 +96,49 @@ class VideoMeta:
     url: str
     source_path: Path
 
-    def to_json_dict(self) -> dict[str, object]:
-        return {
-            "video_id": self.video_id,
-            "title": self.title,
-            "upload_date": self.upload_date,
-            "duration_s": self.duration_s,
-            "url": self.url,
-            "source_path": str(self.source_path),
-        }
 
-    @classmethod
-    def from_json_dict(cls, data: dict[str, object]) -> VideoMeta:
-        return cls(
-            video_id=str(data["video_id"]),
-            title=str(data["title"]),
-            upload_date=(
-                str(data["upload_date"]) if data.get("upload_date") is not None else None
-            ),
-            duration_s=float(data["duration_s"]),  # type: ignore[arg-type]
-            url=str(data["url"]),
-            source_path=Path(str(data["source_path"])),
+class VideoProperties(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    fps: float
+    width: int
+    height: int
+    frame_count: int
+
+
+def read_video_properties(path: Path) -> VideoProperties:
+    """Open a video, read its metadata, and release the capture cleanly."""
+    import cv2
+
+    cap = cv2.VideoCapture(str(path))
+    try:
+        return VideoProperties(
+            fps=cap.get(cv2.CAP_PROP_FPS) or 30.0,
+            width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            frame_count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
         )
+    finally:
+        cap.release()
+
+
+def read_frame_at(path: Path, frame_idx: int) -> np.ndarray:
+    """Seek to a specific frame and return it as a numpy array.
+
+    Raises:
+        FileNotFoundError: the video file is missing.
+        RuntimeError: the frame could not be decoded (corrupt file or OOB index).
+    """
+    import cv2
+
+    if not path.exists():
+        raise FileNotFoundError(path)
+    cap = cv2.VideoCapture(str(path))
+    try:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ok, frame = cap.read()
+    finally:
+        cap.release()
+    if not ok or frame is None:
+        raise RuntimeError(f"could not read frame {frame_idx} from {path}")
+    return frame
