@@ -254,6 +254,7 @@ def viz_cmd(
         viz_court_path,
         viz_overlay_path,
     )
+    from rallylens.vision.court_detector import CourtCorners
     from rallylens.viz import render_overlay_video, render_viz_court
 
     video_id = video_path.stem
@@ -261,23 +262,30 @@ def viz_cmd(
     detections = load_player_detections(video_id)
     shuttle_track = load_shuttle_track(video_id)
 
+    corners: CourtCorners | None = None
+    if overlay or court:
+        try:
+            corners = load_court_corners(video_id)
+        except FileNotFoundError as exc:
+            if court:
+                raise click.ClickException(
+                    f"court calibration not found for {video_id!r} "
+                    "— run `rallylens calibrate` first"
+                ) from exc
+
     if overlay:
         out = render_overlay_video(
             video_path,
             detections,
             shuttle_track,
             viz_overlay_path(video_id),
+            corners=corners,
             trail_len=trail_len,
         )
         click.echo(f"overlay:  {out}")
 
     if court:
-        try:
-            corners = load_court_corners(video_id)
-        except FileNotFoundError as exc:
-            raise click.ClickException(
-                f"court calibration not found for {video_id!r} — run `rallylens calibrate` first"
-            ) from exc
+        assert corners is not None
         props = read_video_properties(video_path)
         out = render_viz_court(
             detections,

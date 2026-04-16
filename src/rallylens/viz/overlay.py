@@ -14,12 +14,20 @@ import cv2
 import numpy as np
 
 from rallylens.common import open_video, open_video_writer, read_video_properties
+from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
+    IMG_H,
+    IMG_W,
     SHUTTLE_COLOR,
+    compute_homography,
+    compute_shuttle_court_positions,
+    draw_court_background,
     draw_fading_trail,
+    foot_point_from_detection,
     group_detections_by_frame,
+    render_pip_court_frame,
     track_color,
 )
 
@@ -99,10 +107,13 @@ def render_overlay_video(
     shuttle_track: list[ShuttlePoint],
     out_path: Path,
     *,
+    corners: CourtCorners | None = None,
     trail_len: int = 30,
     kp_conf_thresh: float = 0.3,
     bbox_thickness: int = 2,
     skeleton_thickness: int = 2,
+    pip_scale: float = 0.5,
+    pip_margin: int = 10,
     fourcc: str = "mp4v",
 ) -> Path:
     """Read source video frame-by-frame, draw overlays, and write MP4.
@@ -115,6 +126,27 @@ def render_overlay_video(
     shuttle_by_frame: dict[int, ShuttlePoint] = {pt.frame_idx: pt for pt in shuttle_track}
 
     trail: collections.deque[ShuttlePoint] = collections.deque(maxlen=trail_len)
+
+    pip_enabled = corners is not None
+    H: np.ndarray | None = None
+    court_bg: np.ndarray | None = None
+    shuttle_court: dict[int, tuple[int, int]] = {}
+    pip_h = pip_w = pip_x = pip_y = 0
+    pip_player_trails: dict[int, collections.deque[tuple[int, int]]] = {}
+    pip_shuttle_trail: collections.deque[tuple[int, int]] = collections.deque(maxlen=trail_len)
+
+    if pip_enabled:
+        assert corners is not None
+        H = compute_homography(corners)
+        court_bg = draw_court_background()
+        shuttle_court = compute_shuttle_court_positions(
+            detections, shuttle_track, H, kp_conf_thresh=kp_conf_thresh
+        )
+        pip_h = max(1, int(props.height * pip_scale))
+        pip_w = max(1, int(pip_h * IMG_W / IMG_H))
+        pip_x = pip_margin
+        pip_y = props.height - pip_h - pip_margin
+
     frame_idx = 0
 
     with (
@@ -134,6 +166,39 @@ def render_overlay_video(
             for det in detections_by_frame.get(frame_idx, []):
                 _draw_bbox(frame, det, bbox_thickness)
                 _draw_skeleton(frame, det, kp_conf_thresh, skeleton_thickness)
+
+            if pip_enabled and H is not None and court_bg is not None:
+                for det in detections_by_frame.get(frame_idx, []):
+                    if det.track_id is None:
+                        continue
+                    pt = foot_point_from_detection(det, H, kp_conf_thresh)
+                    if pt is None:
+                        continue
+                    if det.track_id not in pip_player_trails:
+                        pip_player_trails[det.track_id] = collections.deque(
+                            maxlen=trail_len
+                        )
+                    pip_player_trails[det.track_id].append(pt)
+
+                spos = shuttle_court.get(frame_idx)
+                if spos is not None:
+                    pip_shuttle_trail.append(spos)
+
+                pip_frame = render_pip_court_frame(
+                    court_bg, pip_player_trails, pip_shuttle_trail
+                )
+                pip_resized = cv2.resize(
+                    pip_frame, (pip_w, pip_h), interpolation=cv2.INTER_AREA
+                )
+
+                cv2.rectangle(
+                    frame,
+                    (pip_x - 1, pip_y - 1),
+                    (pip_x + pip_w, pip_y + pip_h),
+                    (255, 255, 255),
+                    1,
+                )
+                frame[pip_y : pip_y + pip_h, pip_x : pip_x + pip_w] = pip_resized
 
             writer.write(frame)
             frame_idx += 1

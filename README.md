@@ -9,11 +9,9 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command
 
 ## Demo
 
-| 오버레이 영상 | 코트 궤적 |
-|:---:|:---:|
-| ![오버레이 영상](outputs/demo/overlay_demo.gif) | ![코트 궤적](outputs/demo/viz_court.gif) |
+[![오버레이 영상](outputs/demo/thumbnail.png)](https://youtu.be/fKwac0CsBLc)
 
-코트 탑뷰 궤적 애니메이션. 히트맵이 배경에 포함되어 선수별 위치 분포와 이동 경로를 한눈에 확인할 수 있습니다.
+▶ **[오버레이 영상 보기 (YouTube)](https://youtu.be/fKwac0CsBLc)** — 선수 바운딩 박스·스켈레톤·셔틀콕 잔상 + 좌측 하단 **코트 탑뷰 PIP(Picture-in-Picture)**.
 
 ### LLM 랠리 분석 보고서
 
@@ -27,8 +25,6 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command
 > 17초 동안 24번의 샷이 오간 매우 빠르고 긴 랠리입니다. 1번 선수는 코트 중앙(76.3%)과 중위(74.5%)를 중심으로 적은 움직임(40.3m)으로 경기를 효율적으로 운영했습니다. 반면, 2번 선수는 1번 선수보다 1.5배 가까운 59.5m를 이동하며 코트 후위(57.9%)로 밀려나 넓은 범위를 수비하는 데 체력을 소모했습니다.
 
 </details>
-
-동일한 아티팩트 위에서 `rallylens report` 가 Vertex AI Gemini 기반 한국어 랠리 분석 보고서를 생성하고, GIF·히트맵을 상대 경로로 임베드합니다.
 
 ---
 
@@ -173,7 +169,7 @@ uv run rallylens viz <video_path> [--overlay] [--court] \
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
-| `--overlay / --no-overlay` | `on` | 선수·셔틀콕 오버레이 MP4 |
+| `--overlay / --no-overlay` | `on` | 선수·셔틀콕 오버레이 MP4 (코트 캘리브레이션 시 탑뷰 PIP 포함) |
 | `--court / --no-court` | `on` | 코트 탑뷰 궤적 GIF (히트맵 배경 포함) |
 | `--trail-len` | `30` | 셔틀콕 잔상 길이(프레임) |
 | `--court-stride` | `5` | 코트 GIF에 포함할 프레임 간격 |
@@ -280,7 +276,7 @@ src/rallylens/
 │   ├── prompt.py       ← SYSTEM_PROMPT_KO
 │   └── report.py       ← generate_report + render_report_markdown
 ├── viz/                ← 아티팩트 렌더링 전용. 모델 추론 없음.
-│   ├── overlay.py      ← 비디오 오버레이 MP4
+│   ├── overlay.py      ← 비디오 오버레이 MP4 (탑뷰 PIP 합성 포함)
 │   └── viz_court.py ← 탑뷰 궤적 GIF (히트맵 배경 포함)
 ├── ingest/             ← yt-dlp 래퍼 (캐시 포함)
 ├── domain/             ← VideoProperties 등 도메인 모델

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Final
 
 import cv2
@@ -505,3 +505,29 @@ def draw_fading_trail(
         )
         faded = (int(color[0] * alpha), int(color[1] * alpha), int(color[2] * alpha))
         cv2.circle(frame, pt, radius, faded, -1, cv2.LINE_AA)
+
+
+def render_pip_court_frame(
+    court_bg: np.ndarray,
+    player_trails: Mapping[int, Iterable[tuple[int, int]]],
+    shuttle_trail: Iterable[tuple[int, int]],
+    *,
+    player_radius: int = 6,
+    shuttle_radius: int = 4,
+) -> np.ndarray:
+    """Render a single court-diagram frame with player and shuttle trails."""
+    frame = court_bg.copy()
+
+    for tid, trail in player_trails.items():
+        color = track_color(tid)
+        pts = list(trail)
+        draw_fading_trail(frame, pts, color=color, head_radius=player_radius)
+        if pts:
+            cv2.circle(frame, pts[-1], player_radius, color, -1, cv2.LINE_AA)
+
+    s_pts = list(shuttle_trail)
+    draw_fading_trail(frame, s_pts, color=SHUTTLE_COLOR, head_radius=shuttle_radius)
+    if s_pts:
+        cv2.circle(frame, s_pts[-1], shuttle_radius, SHUTTLE_COLOR, -1, cv2.LINE_AA)
+
+    return frame
