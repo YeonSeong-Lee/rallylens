@@ -34,6 +34,9 @@ dependencies = [
     "yt-dlp>=2026.3.17",
 ]
 
+[project.optional-dependencies]
+report = ["google-genai>=1.33.0"]
+
 [project.urls]
 Homepage = "https://github.com/YeonSeong-Lee/rallylens"
 Repository = "https://github.com/YeonSeong-Lee/rallylens"

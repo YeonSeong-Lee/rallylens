@@ -16,6 +16,7 @@ TRACKS_DIR: Path = DATA_DIR / "tracks"
 CALIBRATION_DIR: Path = DATA_DIR / "calibration"
 MODELS_DIR: Path = PROJECT_ROOT / "models"
 VIZ_DIR: Path = DATA_DIR / "viz"
+REPORTS_DIR: Path = DATA_DIR / "reports"
 
 TARGET_HEIGHT: int = 720
 TARGET_FPS: int = 30

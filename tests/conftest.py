@@ -11,6 +11,9 @@ _DIR_NAMES = (
     "DATA_DIR",
     "RAW_DIR",
     "DETECTIONS_DIR",
+    "TRACKS_DIR",
+    "CALIBRATION_DIR",
+    "REPORTS_DIR",
 )
 
 
@@ -29,6 +32,9 @@ def isolated_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "DATA_DIR": data,
         "RAW_DIR": data / "raw",
         "DETECTIONS_DIR": data / "detections",
+        "TRACKS_DIR": data / "tracks",
+        "CALIBRATION_DIR": data / "calibration",
+        "REPORTS_DIR": data / "reports",
     }
 
     targets = (

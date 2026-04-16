@@ -171,6 +171,62 @@ def run_cmd(url_or_path: str, tracker: str, singles: bool, imgsz: int) -> None:
     click.echo(f"detections saved for {result.video_id}: {result.detections_path}")
 
 
+@cli.command("report")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--model",
+    default="gemini-2.5-flash",
+    show_default=True,
+    help="Vertex AI Gemini model ID.",
+)
+@click.option("--temperature", type=float, default=0.4, show_default=True)
+@click.option(
+    "--metrics-only",
+    is_flag=True,
+    default=False,
+    help="Skip the LLM call and only produce metrics.json (no Vertex AI creds needed).",
+)
+@click.option(
+    "--skip-viz",
+    is_flag=True,
+    default=False,
+    help="Skip auto-rendering of court diagram GIF and heatmap PNG.",
+)
+def report_cmd(
+    video_path: Path,
+    model: str,
+    temperature: float,
+    metrics_only: bool,
+    skip_viz: bool,
+) -> None:
+    """Generate a Korean rally analysis report via Vertex AI Gemini.
+
+    Requires existing detections and court corners artifacts — run
+    `rallylens detect` and `rallylens calibrate` first. Shuttle tracking
+    (`rallylens detect-shuttle`) is optional but strongly recommended.
+    """
+    from rallylens.pipeline import run_report_pipeline
+
+    try:
+        result = run_report_pipeline(
+            video_path,
+            model=model,
+            temperature=temperature,
+            metrics_only=metrics_only,
+            skip_viz=skip_viz,
+        )
+    except (FileNotFoundError, RuntimeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    click.echo(f"metrics: {result.metrics_path}")
+    if result.court_diagram_path is not None:
+        click.echo(f"gif:     {result.court_diagram_path}")
+    if result.heatmap_path is not None:
+        click.echo(f"heatmap: {result.heatmap_path}")
+    if result.report_md_path is not None:
+        click.echo(f"report:  {result.report_md_path}")
+
+
 @cli.command("viz")
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--overlay/--no-overlay", default=True, show_default=True, help="Render video overlay MP4.")

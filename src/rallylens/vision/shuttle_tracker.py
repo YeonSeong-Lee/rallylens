@@ -54,6 +54,20 @@ class ShuttlePoint(BaseModel):
     y: int  # pixel y in original video resolution
 
 
+class HitEvent(BaseModel):
+    """Shuttle-to-racket contact detected via wrist-proximity heuristic.
+
+    See rallylens.viz._utils.extract_hit_events for the detection algorithm.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    frame_idx: int
+    striker_track_id: int | None
+    wrist_distance_px: float
+    event_court_xy: tuple[int, int]
+
+
 def _stack_frames(frames: list[np.ndarray]) -> torch.Tensor:
     """Stack a list of BGR frames into a (1, 3*seq_len, H, W) float tensor."""
     channels = []

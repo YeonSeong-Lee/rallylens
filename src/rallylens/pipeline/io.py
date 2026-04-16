@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rallylens.config import CALIBRATION_DIR, DETECTIONS_DIR, TRACKS_DIR, VIZ_DIR
+from rallylens.analysis.metrics import MatchMetrics
+from rallylens.config import (
+    CALIBRATION_DIR,
+    DETECTIONS_DIR,
+    REPORTS_DIR,
+    TRACKS_DIR,
+    VIZ_DIR,
+)
+from rallylens.llm.report_schema import ReportOutput
 from rallylens.serialization import load_json, load_jsonl, save_json, save_jsonl
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
@@ -82,3 +90,40 @@ def viz_heatmap_path(video_id: str) -> Path:
 
 def viz_court_diagram_path(video_id: str) -> Path:
     return VIZ_DIR / video_id / "court_diagram.gif"
+
+
+# ---------------------------------------------------------------------------
+# Reports (deterministic metrics + LLM-generated analysis)
+# ---------------------------------------------------------------------------
+
+
+def metrics_path(video_id: str) -> Path:
+    return REPORTS_DIR / video_id / "metrics.json"
+
+
+def save_match_metrics(metrics: MatchMetrics, video_id: str) -> Path:
+    path = metrics_path(video_id)
+    save_json(metrics, path)
+    return path
+
+
+def load_match_metrics(video_id: str) -> MatchMetrics:
+    return load_json(metrics_path(video_id), MatchMetrics)
+
+
+def report_json_path(video_id: str) -> Path:
+    return REPORTS_DIR / video_id / "report.json"
+
+
+def report_markdown_path(video_id: str) -> Path:
+    return REPORTS_DIR / video_id / "report.md"
+
+
+def save_report(report: ReportOutput, video_id: str) -> Path:
+    path = report_json_path(video_id)
+    save_json(report, path)
+    return path
+
+
+def load_report(video_id: str) -> ReportOutput:
+    return load_json(report_json_path(video_id), ReportOutput)
