@@ -11,17 +11,15 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command
 
 ### 오버레이 영상
 
-<video src="outputs/demo/overlay_demo.mp4" controls width="100%"></video>
+<video src="https://github.com/YeonSeong-Lee/rallylens/raw/main/outputs/demo/overlay_demo.mp4" controls width="100%"></video>
 
 선수 포즈·셔틀콕 궤적을 원본 영상 위에 실시간 렌더링한 오버레이. 17초 분량 싱글스 랠리 기준.
 
-### 히트맵 & 코트 궤적
+### 코트 궤적
 
-| Heatmap | Court trajectory |
-|---|---|
-| ![heatmap](outputs/demo/heatmap.png) | ![court](outputs/demo/viz_court.gif) |
+![코트 궤적](outputs/demo/viz_court.gif)
 
-선수 위치 히트맵(좌)과 코트 탑뷰 궤적 애니메이션(우).
+코트 탑뷰 궤적 애니메이션. 히트맵이 배경에 포함되어 선수별 위치 분포와 이동 경로를 한눈에 확인할 수 있습니다.
 
 ### LLM 랠리 분석 보고서
 
