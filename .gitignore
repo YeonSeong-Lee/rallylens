@@ -33,13 +33,16 @@ notebooks/**/*.ipynb_checkpoints
 
 # ===== Data / models / weights =====
 data/
-models/
+models/*
 *.pt
 *.onnx
 *.pth
 *.weights
 wandb/
 mlruns/
+# Re-include committed weights (must come after blanket *.pt / *.pth patterns)
+!models/.gitkeep
+!models/shuttle_tracknet.pth
 
 # ===== Outputs — track outputs/demo/, drop heavy binaries =====
 outputs/**/*.mp4
