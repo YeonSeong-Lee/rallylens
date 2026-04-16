@@ -300,6 +300,32 @@ uv run mypy               # 타입 체크
 
 ---
 
+## 참고 자료
+
+### 알고리즘·모델
+
+| 프로젝트 | 용도 | 링크 |
+|---|---|---|
+| TrackNetV3 | 셔틀콕 추적 (sliding-window heatmap inference) | [qaz812345/TrackNetV3](https://github.com/qaz812345/TrackNetV3) |
+| TRACE | 코트 검출 · 히트 이벤트 감지 · 셔틀 탑뷰 투영 | [hgupt3/TRACE](https://github.com/hgupt3/TRACE) |
+| Ultralytics YOLO11 | 선수 포즈 추정 + ByteTrack 통합 | [docs.ultralytics.com](https://docs.ultralytics.com/) |
+| ByteTrack | 다중 객체 추적 (track ID 유지) | [ifzhang/ByteTrack](https://github.com/ifzhang/ByteTrack) |
+| Vertex AI Gemini | 한국어 랠리 분석 보고서 생성 (구조화 출력) | [cloud.google.com/vertex-ai](https://cloud.google.com/vertex-ai) |
+
+### 라이브러리
+
+| 라이브러리 | 링크 |
+|---|---|
+| google-genai (Python SDK) | [googleapis/python-genai](https://github.com/googleapis/python-genai) |
+| OpenCV | [opencv.org](https://opencv.org/) |
+| PyTorch | [pytorch.org](https://pytorch.org/) |
+| Pydantic | [docs.pydantic.dev](https://docs.pydantic.dev/) |
+| yt-dlp | [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp) |
+| Click | [click.palletsprojects.com](https://click.palletsprojects.com/) |
+| uv | [docs.astral.sh/uv](https://docs.astral.sh/uv/) |
+
+---
+
 ## License
 
 MIT. YOLO11 weights are AGPL-3.0; this project is for portfolio / educational use only.

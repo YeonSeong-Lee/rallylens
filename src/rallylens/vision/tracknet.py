@@ -1,7 +1,5 @@
 """TrackNetV3 model architecture for shuttlecock detection.
 
-Reference: https://github.com/qaz812345/TrackNetV3
-
 Two-stage pipeline:
   1. TrackNet   — 2D U-Net that detects shuttlecock heatmaps from a sequence of frames.
   2. InpaintNet — 1D U-Net that refines predicted trajectories by inpainting occluded frames.

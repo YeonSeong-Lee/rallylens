@@ -1,7 +1,5 @@
 """Shuttlecock detection using TrackNetV3.
 
-Reference: https://github.com/qaz812345/TrackNetV3
-
 Wraps TrackNet inference with a rolling frame buffer, coordinate extraction
 from sigmoid heatmaps (contour-based), and coordinate rescaling to the
 original video resolution.

@@ -227,9 +227,6 @@ def extract_foot_positions(
 #      shuttle's top-down trajectory, which is nearly straight between
 #      hits (the curved 3D arc projects close to a line on the ground).
 #
-# Reference: https://github.com/hgupt3/TRACE/blob/main/CourtDetection.py
-# (hit radius, linear interpolation) and CourtMapping.py (givePoint).
-
 # COCO-17 keypoint indices used here
 _KP_NOSE = 0
 _KP_L_WRIST = 9

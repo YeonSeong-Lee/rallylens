@@ -1,7 +1,5 @@
 """Badminton court corner detection using classical computer vision.
 
-Reference: https://github.com/hgupt3/TRACE  CourtDetection.py
-
 Pipeline per frame:
   1. Grayscale → binary threshold → Canny edges → HoughLinesP
   2. Count intersections per line; pick top-8 most-intersecting lines.
