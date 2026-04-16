@@ -1,17 +1,49 @@
+<div align="center">
+
 # RallyLens
 
-> **배드민턴 경기 영상 → 선수·셔틀콕 추적 → 코트 시각화 → 한국어 LLM 랠리 분석 보고서.**
-> *Automated badminton tracking, visualization, and LLM-authored match report pipeline.*
+**배드민턴 경기 영상 → 선수·셔틀콕 추적 → 코트 시각화 → 한국어 LLM 랠리 분석 보고서**
 
-YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command CLI.
+*Automated badminton tracking, visualization, and LLM-authored match report pipeline.*
+
+[![Python](https://img.shields.io/badge/Python-≥3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![uv](https://img.shields.io/badge/managed_with-uv-7C3AED?logo=uv)](https://docs.astral.sh/uv/)
+
+YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini
+
+</div>
 
 ---
 
-## Demo
+## 데모 — Demo
 
 [![오버레이 영상](outputs/demo/thumbnail.png)](https://youtu.be/fKwac0CsBLc)
 
-▶ **[오버레이 영상 보기 (YouTube)](https://youtu.be/fKwac0CsBLc)** — 선수 바운딩 박스·스켈레톤·셔틀콕 잔상 + 좌측 하단 **코트 탑뷰 PIP(Picture-in-Picture)**.
+> ▶ **[YouTube에서 보기](https://youtu.be/fKwac0CsBLc)** — 선수 바운딩 박스·스켈레톤·셔틀콕 잔상 + 좌측 하단 코트 탑뷰 PIP
+
+### 코트 분석 시각화
+
+<table>
+  <tr>
+    <td align="center"><strong>코트 궤적 애니메이션</strong><br><em>Court trajectory animation</em></td>
+    <td align="center"><strong>히트맵 (선수 / 셔틀콕)</strong><br><em>Player & shuttle heatmaps</em></td>
+  </tr>
+  <tr>
+    <td><img src="outputs/demo/viz_court.gif" width="280" alt="코트 궤적 GIF"></td>
+    <td><img src="outputs/demo/heatmap.png" width="280" alt="히트맵"></td>
+  </tr>
+</table>
+
+<details>
+<summary><strong>코트 다이어그램 상세 보기</strong> — 3-panel court diagram</summary>
+<br>
+
+![코트 다이어그램](outputs/demo/court_diagram.png)
+
+*왼쪽: 1번 선수 궤적 / 가운데: 2번 선수 궤적 / 오른쪽: 셔틀콕 궤적*
+
+</details>
 
 ### LLM 랠리 분석 보고서
 
@@ -28,7 +60,20 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command
 
 ---
 
-## 설치
+## 주요 기능 — Features
+
+- **선수 추적** — YOLO11-pose 골격 추정 + ByteTrack 멀티 트래커로 싱글스 선수 2명 자동 식별
+- **셔틀콕 추적** — TrackNetV3 슬라이딩 윈도우 히트맵 추론으로 고속 셔틀콕 궤적 복원
+- **코트 캘리브레이션** — Hough 기반 자동 코너 검출 (또는 인터랙티브 수동 선택)
+- **시각화** — 오버레이 MP4 (탑뷰 PIP 포함) + 코트 궤적 GIF + 히트맵
+- **LLM 분석 보고서** — Vertex AI Gemini 구조화 출력으로 한국어 랠리 분석 자동 생성
+- **원커맨드 CLI** — `uv run rallylens run <url>` 하나로 다운로드부터 추적까지 일괄 실행
+
+---
+
+## 빠른 시작 — Quick Start
+
+### 설치
 
 ```bash
 git clone https://github.com/YeonSeong-Lee/rallylens
@@ -37,7 +82,23 @@ brew install ffmpeg        # macOS; Linux: sudo apt install ffmpeg
 uv sync
 ```
 
-### 선택: Vertex AI 보고서 사용
+### 실행
+
+```bash
+# 1. YouTube 영상 다운로드 + 선수 추적 (one-command)
+uv run rallylens run https://www.youtube.com/watch?v=<id>
+
+# 2. 셔틀콕 추적 → 코트 캘리브레이션 → 시각화
+uv run rallylens detect-shuttle data/raw/<video_id>.mp4
+uv run rallylens calibrate data/raw/<video_id>.mp4
+uv run rallylens viz data/raw/<video_id>.mp4
+
+# 3. 한국어 LLM 분석 보고서 (Vertex AI 설정 필요 — 아래 참조)
+uv run rallylens report data/raw/<video_id>.mp4
+```
+
+<details>
+<summary><strong>선택: Vertex AI 보고서 설정</strong> — Gemini 기반 LLM 보고서 사용 시</summary>
 
 `rallylens report` 는 Google Cloud Vertex AI Gemini 를 호출해 한국어 랠리 분석 보고서를 작성합니다. LLM 보고서 기능이 필요할 때만 아래 설정을 하면 됩니다.
 
@@ -82,52 +143,24 @@ uv run rallylens report data/raw/<video_id>.mp4
 
 > 인증 없이 결정론적 메트릭만 확인하고 싶다면 `rallylens report <video> --metrics-only` 로 실행합니다. `metrics.json` 만 생성하고 Gemini 호출은 건너뜁니다.
 
----
-
-## 빠른 시작
-
-```bash
-# 1. YouTube 영상의 특정 구간 다운로드 → 선수 추적
-uv run rallylens run https://www.youtube.com/watch?v=<id>
-
-# 2. 셔틀콕 추적
-uv run rallylens detect-shuttle data/raw/<video_id>.mp4
-
-# 3. 코트 캘리브레이션
-uv run rallylens calibrate data/raw/<video_id>.mp4
-
-# 4. 시각화 (overlay MP4 + court GIF)
-uv run rallylens viz data/raw/<video_id>.mp4
-
-# 5. 한국어 랠리 분석 보고서 (Vertex AI Gemini)
-uv run rallylens report data/raw/<video_id>.mp4
-```
+</details>
 
 ---
 
-## 명령어 레퍼런스
+## 명령어 레퍼런스 — CLI Reference
 
 아티팩트 경로는 `<video_id>` = 입력 파일명(stem) 기준으로 `data/` 하위에 저장됩니다.
 
-### `ingest` — YouTube 다운로드
+### `run` — end-to-end 파이프라인
 
 ```bash
-uv run rallylens ingest <youtube-url> [--start 1:30] [--end 2:00] [--force]
+uv run rallylens run <url-or-path> [OPTIONS]
 ```
 
-| 옵션 | 기본값 | 설명 |
-|---|---|---|
-| `--start` | 없음 | 시작 시간 (초 또는 `MM:SS` / `HH:MM:SS`) |
-| `--end` | 없음 | 종료 시간 |
-| `--force / --no-force` | `no-force` | 캐시 무시하고 재다운로드 |
+로컬 파일이면 바로 사용, YouTube URL이면 다운로드 후 선수 추적까지 일괄 실행.
 
-출력: `data/raw/<video_id>.mp4`. 클립 다운로드 시 파일명은 `<video_id>_<start>s_<end>s.mp4`.
-
-### `detect` — 선수 추적
-
-```bash
-uv run rallylens detect <video_path> [--tracker bytetrack] [--singles] [--imgsz 1280]
-```
+<details>
+<summary>옵션 상세</summary>
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
@@ -135,37 +168,93 @@ uv run rallylens detect <video_path> [--tracker bytetrack] [--singles] [--imgsz 
 | `--singles / --no-singles` | `singles` | 가장 안정적인 2개 트랙 ID만 유지 (싱글스) |
 | `--imgsz` | `1280` | YOLO 추론 이미지 크기 |
 
+</details>
+
+### `ingest` — YouTube 다운로드
+
+```bash
+uv run rallylens ingest <youtube-url> [OPTIONS]
+```
+
+출력: `data/raw/<video_id>.mp4`. 클립 다운로드 시 파일명은 `<video_id>_<start>s_<end>s.mp4`.
+
+<details>
+<summary>옵션 상세</summary>
+
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `--start` | 없음 | 시작 시간 (초 또는 `MM:SS` / `HH:MM:SS`) |
+| `--end` | 없음 | 종료 시간 |
+| `--force / --no-force` | `no-force` | 캐시 무시하고 재다운로드 |
+
+</details>
+
+### `detect` — 선수 추적
+
+```bash
+uv run rallylens detect <video_path> [OPTIONS]
+```
+
 출력: `data/detections/<video_id>/<video_id>_players.jsonl`
+
+<details>
+<summary>옵션 상세</summary>
+
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `--tracker [none\|bytetrack]` | `bytetrack` | 트래커 선택 |
+| `--singles / --no-singles` | `singles` | 가장 안정적인 2개 트랙 ID만 유지 (싱글스) |
+| `--imgsz` | `1280` | YOLO 추론 이미지 크기 |
+
+</details>
 
 ### `detect-shuttle` — 셔틀콕 추적
 
 ```bash
-uv run rallylens detect-shuttle <video_path> [--weights models/shuttle_tracknet.pth]
+uv run rallylens detect-shuttle <video_path> [OPTIONS]
 ```
 
 출력: `data/tracks/<video_id>/<video_id>_shuttle.jsonl`
 
+<details>
+<summary>옵션 상세</summary>
+
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `--weights` | `models/shuttle_tracknet.pth` | TrackNetV3 가중치 경로 |
+
+</details>
+
 ### `calibrate` — 코트 캘리브레이션
 
 ```bash
-uv run rallylens calibrate <video_path> [--samples 20] [--interactive]
+uv run rallylens calibrate <video_path> [OPTIONS]
 ```
+
+출력: `data/calibration/<video_id>/corners.json`
+
+<details>
+<summary>옵션 상세</summary>
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
 | `--samples` | `20` | 코트 탐지에 사용할 샘플 프레임 수 |
 | `--interactive` | off | OpenCV 창에서 코너를 직접 클릭/확정 |
 
-출력: `data/calibration/<video_id>/corners.json`
+</details>
 
 ### `viz` — 시각화
 
 ```bash
-uv run rallylens viz <video_path> [--overlay] [--court] \
-    [--trail-len 30] [--court-stride 5] [--court-scale 0.5]
+uv run rallylens viz <video_path> [OPTIONS]
 ```
 
 사전에 `detect`, `detect-shuttle`, `calibrate` 아티팩트가 필요합니다.
+
+출력: `data/viz/<video_id>/{<video_id>_overlay.mp4, viz_court.gif}`
+
+<details>
+<summary>옵션 상세</summary>
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
@@ -175,18 +264,19 @@ uv run rallylens viz <video_path> [--overlay] [--court] \
 | `--court-stride` | `5` | 코트 GIF에 포함할 프레임 간격 |
 | `--court-scale` | `0.5` | 코트 GIF 다운스케일 비율 |
 
-출력: `data/viz/<video_id>/{<video_id>_overlay.mp4, viz_court.gif}`
+</details>
 
-### `report` — Vertex AI 기반 랠리 분석 보고서 (Korean)
+### `report` — Vertex AI 기반 랠리 분석 보고서
 
 ```bash
-uv run rallylens report <video_path> [--model gemini-2.5-pro] [--temperature 0.4] \
-    [--metrics-only] [--skip-viz]
+uv run rallylens report <video_path> [OPTIONS]
 ```
 
-사전 조건:
-- `detect` 와 `calibrate` 아티팩트가 이미 있어야 합니다. `detect-shuttle` 은 권장사항(없어도 돌아가지만 샷·랠리 수치는 모두 0).
-- Vertex AI 를 호출하려면 [선택: Vertex AI 보고서 사용](#선택-vertex-ai-보고서-사용) 섹션의 설정을 먼저 완료하세요.
+사전 조건: `detect` 와 `calibrate` 아티팩트 필요. `detect-shuttle` 은 권장 (없어도 동작하지만 샷·랠리 수치는 0).
+Vertex AI 설정은 [빠른 시작](#빠른-시작--quick-start) 섹션의 접힘 블록 참조.
+
+<details>
+<summary>옵션 상세</summary>
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
@@ -194,12 +284,6 @@ uv run rallylens report <video_path> [--model gemini-2.5-pro] [--temperature 0.4
 | `--temperature` | `0.4` | 샘플링 온도 (0.0~1.0) |
 | `--metrics-only` | off | LLM 호출 건너뛰고 `metrics.json` 만 생성 (인증 불필요) |
 | `--skip-viz` | off | 코트 GIF·히트맵 자동 렌더 건너뛰기 |
-
-파이프라인 흐름:
-1. `detections` + `shuttle_track` + `corners` 를 로드해 결정론적 `MatchMetrics` 계산 (이동 거리, 평균·최대 속도, 코트 커버리지, 전/중/후·좌/중/우 존 분포, 샷 수, 셔틀 속도 등).
-2. `viz_court.gif` 가 없으면 자동으로 렌더(없어도 계속 진행).
-3. Gemini 2.5 Pro 를 구조화 출력(`response_schema=ReportOutput`)으로 호출해 `headline / summary / key_observations / player_analysis / tactical_suggestions` 를 작성.
-4. `report.md` 를 f-string 템플릿으로 결정론적 렌더 — 수치는 `MatchMetrics` 에서 직접 인용(환각 방지), LLM 은 산문만 담당, GIF·히트맵은 상대 경로로 임베드.
 
 출력:
 
@@ -210,50 +294,44 @@ data/reports/<video_id>/
 └── report.md        # 렌더된 마크다운 보고서 — GitHub·VS Code·Obsidian에서 GIF 재생
 ```
 
-필요 시 `data/viz/<video_id>/viz_court.gif` 도 함께 생성됩니다.
-
-### `run` — end-to-end 파이프라인
-
-```bash
-uv run rallylens run <url-or-path> [--tracker bytetrack] [--singles] [--imgsz 1280]
-```
-
-로컬 파일이면 바로 사용, YouTube URL이면 다운로드 후 선수 추적까지 일괄 실행.
+</details>
 
 ---
 
-## 출력 디렉토리 구조
+## 출력 구조 — Output Layout
 
 ```
 data/
-├── raw/                          # 다운로드 원본 영상
-│   └── <video_id>.mp4
-├── detections/
-│   └── <video_id>/<video_id>_players.jsonl
-├── tracks/
-│   └── <video_id>/<video_id>_shuttle.jsonl
-├── calibration/
-│   └── <video_id>/corners.json
-├── viz/
-│   └── <video_id>/
-│       ├── <video_id>_overlay.mp4
-│       └── viz_court.gif
-└── reports/
-    └── <video_id>/
-        ├── metrics.json       # 결정론적 매치 메트릭
-        ├── report.json        # Gemini 구조화 응답
-        └── report.md          # 렌더된 마크다운 보고서 (GIF·히트맵 임베드)
+├── raw/                 # 원본 영상
+├── detections/          # 선수 추적 JSONL
+├── tracks/              # 셔틀콕 추적 JSONL
+├── calibration/         # 코트 코너 JSON
+├── viz/                 # 오버레이 MP4 + 코트 GIF + 히트맵
+└── reports/             # metrics.json + report.json + report.md
 ```
 
-`data/`는 `.gitignore`에 포함됩니다. 공개용 샘플은 `outputs/demo/`에 둡니다.
+> `data/`는 `.gitignore`에 포함됩니다. 공개용 샘플은 `outputs/demo/`에 둡니다.
 
 ---
 
-## 아키텍처
+## 아키텍처 — Architecture
 
-RallyLens 는 **"하나의 모듈 = 하나의 관심사, 의존 방향은 단방향"** 원칙으로 설계됐습니다. CLI 는 pipeline 오케스트레이션을 거쳐야만 하위 레이어(vision / analysis / llm / viz)에 닿을 수 있고, 같은 레벨의 peer layer 간 직접 import 는 금지됩니다.
+**"하나의 모듈 = 하나의 관심사, 의존 방향은 단방향"**
 
-### 레이어
+```
+cli → pipeline → { vision, analysis, llm, viz, ingest }
+                         ↓
+                 { config, serialization, common, domain }
+```
+
+- `vision` 만 `ultralytics`/`cv2` 직접 import — 모델 코드가 이 레이어 밖으로 새지 않음
+- `llm` 만 `google.genai` 직접 import — optional 의존성이므로 `report` 없이도 사용 가능
+- `analysis` 는 결정론적 메트릭만 계산 — LLM 은 해석과 코칭 제안만 담당
+
+<details>
+<summary><strong>상세 아키텍처</strong> — 파일 트리 · 데이터 흐름 · 설계 결정</summary>
+
+### 레이어 구조
 
 ```
 src/rallylens/
@@ -318,7 +396,7 @@ corners.json      ┘                  │
                                                              report.md (GIF·PNG 임베드)
 ```
 
-핵심 설계 결정:
+### 핵심 설계 결정
 
 1. **결정론 ↔ LLM 분리**: 수치는 파이썬이 계산, Gemini 는 해석과 코칭 제안만 작성합니다. 원본 detection 을 프롬프트에 담지 않기 때문에 토큰 비용은 입력 크기와 무관하게 상수이며, 숫자 환각 위험이 사라집니다.
 2. **Pydantic 구조화 출력**: `response_schema=ReportOutput` 으로 Gemini 가 스키마를 강제 준수합니다.
@@ -328,9 +406,11 @@ corners.json      ┘                  │
 
 추가 규약(코딩 컨벤션, mypy 설정, 새 레이어 추가 시 주의점)은 [`CLAUDE.md`](CLAUDE.md) 를 참조하세요.
 
+</details>
+
 ---
 
-## 개발
+## 개발 — Development
 
 ```bash
 uv run pytest             # 테스트
@@ -343,7 +423,7 @@ uv run mypy               # 타입 체크
 
 ---
 
-## 참고 자료
+## 참고 자료 — References
 
 ### 알고리즘·모델
 
@@ -369,6 +449,6 @@ uv run mypy               # 타입 체크
 
 ---
 
-## License
+## 라이선스 — License
 
-MIT. YOLO11 weights are AGPL-3.0; this project is for portfolio / educational use only.
+MIT. YOLO11 weights are [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html); this project is for portfolio / educational use only.
