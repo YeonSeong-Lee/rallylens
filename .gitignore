@@ -51,7 +51,6 @@ outputs/**/*.parquet
 !outputs/demo/
 !outputs/demo/**
 outputs/demo/**/*.mp4
-!outputs/demo/overlay_demo.mp4
 
 # ===== Label Studio exports =====
 labeled/
