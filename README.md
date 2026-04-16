@@ -9,11 +9,26 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command
 
 ## Demo
 
-| Heatmap | Court trajectory |
-|---|---|
-| ![heatmap](outputs/demo/heatmap.png) | ![court](outputs/demo/viz_court.gif) |
+| 오버레이 영상 | 코트 궤적 |
+|:---:|:---:|
+| ![오버레이 영상](outputs/demo/overlay_demo.gif) | ![코트 궤적](outputs/demo/viz_court.gif) |
 
-선수 위치 히트맵(좌)과 코트 탑뷰 궤적 애니메이션(우). 17초 분량 싱글스 랠리 기준. 동일한 아티팩트 위에서 `rallylens report` 가 한국어 랠리 분석 보고서를 생성하고, 위 GIF·히트맵을 상대 경로로 임베드합니다.
+코트 탑뷰 궤적 애니메이션. 히트맵이 배경에 포함되어 선수별 위치 분포와 이동 경로를 한눈에 확인할 수 있습니다.
+
+### LLM 랠리 분석 보고서
+
+[전체 보고서 보기 →](outputs/demo/report_demo.md)
+
+<details>
+<summary>보고서 미리보기 (접기/펼치기)</summary>
+
+> **중앙 지배 전술 vs. 광범위 수비: 17초간의 격렬한 랠리 분석**
+>
+> 17초 동안 24번의 샷이 오간 매우 빠르고 긴 랠리입니다. 1번 선수는 코트 중앙(76.3%)과 중위(74.5%)를 중심으로 적은 움직임(40.3m)으로 경기를 효율적으로 운영했습니다. 반면, 2번 선수는 1번 선수보다 1.5배 가까운 59.5m를 이동하며 코트 후위(57.9%)로 밀려나 넓은 범위를 수비하는 데 체력을 소모했습니다.
+
+</details>
+
+동일한 아티팩트 위에서 `rallylens report` 가 Vertex AI Gemini 기반 한국어 랠리 분석 보고서를 생성하고, GIF·히트맵을 상대 경로로 임베드합니다.
 
 ---
 
@@ -30,11 +45,44 @@ uv sync
 
 `rallylens report` 는 Google Cloud Vertex AI Gemini 를 호출해 한국어 랠리 분석 보고서를 작성합니다. LLM 보고서 기능이 필요할 때만 아래 설정을 하면 됩니다.
 
+#### 1. GCP 프로젝트 준비
+
+- [Google Cloud Console](https://console.cloud.google.com/) 에서 프로젝트를 생성하거나 기존 프로젝트를 선택합니다.
+- **Vertex AI API** 를 활성화합니다.
+
 ```bash
-uv sync --extra report                    # google-genai optional 의존성 설치
-gcloud auth application-default login     # Application Default Credentials (1회)
-cp .env.example .env                       # GOOGLE_CLOUD_PROJECT / LOCATION 채우기
+gcloud services enable aiplatform.googleapis.com --project=<your-project-id>
 ```
+
+#### 2. 인증 (Application Default Credentials)
+
+```bash
+gcloud auth application-default login
+```
+
+브라우저가 열리면 Google 계정으로 로그인합니다. 로컬 머신에서 1회만 실행하면 됩니다.
+
+#### 3. 의존성 설치 및 환경 변수 설정
+
+```bash
+uv sync --extra report          # google-genai optional 의존성 설치
+cp .env.example .env            # 환경 변수 템플릿 복사
+```
+
+`.env` 파일을 열고 값을 채웁니다:
+
+```dotenv
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id   # 필수
+GOOGLE_CLOUD_LOCATION=us-central1          # 선택 (기본값: us-central1)
+```
+
+#### 4. 확인
+
+```bash
+uv run rallylens report data/raw/<video_id>.mp4
+```
+
+기본 모델은 `gemini-2.5-pro` 입니다. `--model` 옵션으로 변경할 수 있습니다.
 
 > 인증 없이 결정론적 메트릭만 확인하고 싶다면 `rallylens report <video> --metrics-only` 로 실행합니다. `metrics.json` 만 생성하고 Gemini 호출은 건너뜁니다.
 
@@ -136,7 +184,7 @@ uv run rallylens viz <video_path> [--overlay] [--court] \
 ### `report` — Vertex AI 기반 랠리 분석 보고서 (Korean)
 
 ```bash
-uv run rallylens report <video_path> [--model gemini-2.5-flash] [--temperature 0.4] \
+uv run rallylens report <video_path> [--model gemini-2.5-pro] [--temperature 0.4] \
     [--metrics-only] [--skip-viz]
 ```
 
@@ -146,15 +194,15 @@ uv run rallylens report <video_path> [--model gemini-2.5-flash] [--temperature 0
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
-| `--model` | `gemini-2.5-flash` | Vertex AI Gemini 모델 ID |
+| `--model` | `gemini-2.5-pro` | Vertex AI Gemini 모델 ID |
 | `--temperature` | `0.4` | 샘플링 온도 (0.0~1.0) |
 | `--metrics-only` | off | LLM 호출 건너뛰고 `metrics.json` 만 생성 (인증 불필요) |
 | `--skip-viz` | off | 코트 GIF·히트맵 자동 렌더 건너뛰기 |
 
 파이프라인 흐름:
-1. `detections` + `shuttle_track` + `corners` 를 로드해 결정론적 `MatchMetrics` 계산 (이동 거리, 평균·최대 속도, 코트 커버리지, 전/중/후·좌/중/우 존 분포, 샷 수, 랠리 수, 셔틀 속도 등).
+1. `detections` + `shuttle_track` + `corners` 를 로드해 결정론적 `MatchMetrics` 계산 (이동 거리, 평균·최대 속도, 코트 커버리지, 전/중/후·좌/중/우 존 분포, 샷 수, 셔틀 속도 등).
 2. `viz_court.gif` 가 없으면 자동으로 렌더(없어도 계속 진행).
-3. Gemini 2.5 Flash 를 구조화 출력(`response_schema=ReportOutput`, thinking 비활성)으로 호출해 `headline / summary / key_observations / player_analysis / tactical_suggestions` 를 작성.
+3. Gemini 2.5 Pro 를 구조화 출력(`response_schema=ReportOutput`)으로 호출해 `headline / summary / key_observations / player_analysis / tactical_suggestions` 를 작성.
 4. `report.md` 를 f-string 템플릿으로 결정론적 렌더 — 수치는 `MatchMetrics` 에서 직접 인용(환각 방지), LLM 은 산문만 담당, GIF·히트맵은 상대 경로로 임베드.
 
 출력:
@@ -274,7 +322,7 @@ corners.json      ┘                  │
 핵심 설계 결정:
 
 1. **결정론 ↔ LLM 분리**: 수치는 파이썬이 계산, Gemini 는 해석과 코칭 제안만 작성합니다. 원본 detection 을 프롬프트에 담지 않기 때문에 토큰 비용은 입력 크기와 무관하게 상수이며, 숫자 환각 위험이 사라집니다.
-2. **Pydantic 구조화 출력**: `response_schema=ReportOutput` 으로 Gemini 가 스키마를 강제 준수. `thinking_budget=0` 으로 thinking 을 비활성화해 지연·비용을 절감합니다.
+2. **Pydantic 구조화 출력**: `response_schema=ReportOutput` 으로 Gemini 가 스키마를 강제 준수합니다.
 3. **Markdown 은 결정론적 템플릿**: `render_report_markdown` 은 LLM 을 두 번 호출하지 않습니다. 수치는 `MatchMetrics` 에서 직접 인용하고, GIF·히트맵은 `os.path.relpath` 로 `report.md` 에 상대 경로로 임베드됩니다.
 4. **Viz 자동 렌더**: `viz_court.gif` 가 없으면 `run_report_pipeline` 이 즉석에서 렌더합니다 (히트맵은 GIF 배경에 포함). 렌더 실패는 경고 로그만 남기고 보고서 작성은 계속됩니다.
 5. **`--metrics-only` 이스케이프 해치**: Gemini 호출과 인증을 건너뛰고 `metrics.json` 만 생성. CI·로컬 튜닝에서 비용 없이 파이프라인을 돌릴 수 있습니다.
