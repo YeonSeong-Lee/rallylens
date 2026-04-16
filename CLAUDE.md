@@ -26,7 +26,7 @@ CLI subcommands (each writes to a fixed location under `data/`):
 - `detect <video>` — YOLO11-pose + ByteTrack → `data/detections/<stem>/<stem>_players.jsonl`.
 - `detect-shuttle <video>` — TrackNetV3 → `data/tracks/<stem>/<stem>_shuttle.jsonl`.
 - `calibrate <video>` — Hough-based court corners → `data/calibration/<stem>/corners.json`. `--interactive` opens an OpenCV picker.
-- `viz <video>` — needs all three above; renders overlay MP4, heatmap PNG, court diagram GIF into `data/viz/<stem>/`.
+- `viz <video>` — needs all three above; renders overlay MP4 and court diagram GIF (with heatmap background) into `data/viz/<stem>/`.
 - `run <url-or-path>` — one-shot ingest + detect.
 
 `RALLYLENS_LOG_LEVEL` env var controls log verbosity (default `INFO`).
@@ -50,7 +50,7 @@ This is the only layer allowed to import `ultralytics` / `cv2`. mypy is relaxed 
 
 **`rallylens.pipeline`** — orchestration. Thin functions that wire `vision` modules to `pipeline.io`. `orchestrator.run_full_pipeline` accepts either a local path or a YouTube URL (it dispatches to `ingest.downloader` only when the path doesn't exist on disk). `shuttle.py` and `court.py` mirror this pattern for their respective stages.
 
-**`rallylens.viz`** — pure rendering on top of the artifacts produced by `pipeline.io`. Reads detections + shuttle track + court corners; writes overlay MP4, heatmap PNG, court diagram GIF. No model inference here.
+**`rallylens.viz`** — pure rendering on top of the artifacts produced by `pipeline.io`. Reads detections + shuttle track + court corners; writes overlay MP4 and court diagram GIF (the heatmap is rendered as the GIF's background, not a standalone PNG). No model inference here.
 
 **`rallylens.ingest.downloader`** — yt-dlp wrapper with caching. Clipped downloads are cached under a separate filename (`<video_id>_<start>s_<end>s.mp4`) so full and clipped versions coexist.
 
