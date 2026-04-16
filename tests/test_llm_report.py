@@ -152,9 +152,6 @@ def test_generate_report_passes_schema_and_system_prompt() -> None:
     assert config.system_instruction == SYSTEM_PROMPT_KO
     assert config.response_mime_type == "application/json"
     assert config.response_schema is ReportOutput
-    # Thinking disabled for deterministic JSON output
-    assert config.thinking_config is not None
-    assert config.thinking_config.thinking_budget == 0
     # User contents contain the metrics payload
     assert "fixture_clip" in call["contents"]
 

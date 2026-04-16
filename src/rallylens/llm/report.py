@@ -70,7 +70,6 @@ def generate_report(
                 response_schema=ReportOutput,
                 temperature=temperature,
                 max_output_tokens=max_output_tokens,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
     except DefaultCredentialsError as exc:
