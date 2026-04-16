@@ -12,6 +12,7 @@ detect() always returns None (graceful fallback).
 from __future__ import annotations
 
 import contextlib
+import os
 from collections import deque
 from pathlib import Path
 
@@ -32,14 +33,31 @@ INFER_W = 512
 
 # TrackNetV3 checkpoint: 9 frames → 8 heatmaps
 # (first frame in the window has no corresponding output heatmap)
-SEQ_LEN = 9   # number of input frames stacked
-OUT_LEN = 8   # number of output heatmaps
+SEQ_LEN = 9  # number of input frames stacked
+OUT_LEN = 8  # number of output heatmaps
 
 # Heatmap detection threshold
 HEATMAP_THRESH = 0.5
 
 # Default weights filename under MODELS_DIR
 DEFAULT_WEIGHTS = "shuttle_tracknet.pth"
+
+
+def _resolve_device() -> torch.device:
+    """Pick the best available torch backend for TrackNet inference.
+
+    Priority: ``RALLYLENS_SHUTTLE_DEVICE`` env var override → MPS (Apple
+    Silicon) → CUDA → CPU. The override exists so that users can force CPU
+    if an MPS op falls back and slows things down in practice.
+    """
+    override = os.environ.get("RALLYLENS_SHUTTLE_DEVICE")
+    if override:
+        return torch.device(override)
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
 
 
 class ShuttlePoint(BaseModel):
@@ -118,13 +136,16 @@ class ShuttleTracker:
             )
             return
 
+        self._device = _resolve_device()
         model = TrackNet(in_dim=3 * SEQ_LEN, out_dim=OUT_LEN)
         with contextlib.chdir(MODELS_DIR):
-            model.load_state_dict(torch.load(resolved, map_location="cpu"))
+            state = torch.load(resolved, map_location=self._device)
+        model.load_state_dict(state)
+        model.to(self._device)
         model.eval()
         self._model = model
         self._enabled = True
-        _log.info("shuttle TrackNet loaded from %s", resolved)
+        _log.info("shuttle TrackNet loaded from %s (device=%s)", resolved, self._device)
 
         self._buffer: deque[np.ndarray] = deque(maxlen=SEQ_LEN)
         # frame_idx corresponding to each buffer slot (oldest → newest)
@@ -157,15 +178,18 @@ class ShuttleTracker:
             return []
 
         tensor = _stack_frames(list(self._buffer))
+        if self._device.type != "cpu":
+            tensor = tensor.to(self._device)
 
         with torch.no_grad():
             output = self._model(tensor)  # (1, SEQ_LEN, H, W)
+        output_cpu = output.detach().cpu()
 
         points: list[ShuttlePoint] = []
         # OUT_LEN heatmaps correspond to buffer frames [1 .. SEQ_LEN-1]
         # (the first input frame has no paired output heatmap)
         for i in range(OUT_LEN):
-            heatmap = output[0, i].cpu().numpy()  # (H, W) float in [0,1]
+            heatmap = output_cpu[0, i].numpy()  # (H, W) float in [0,1]
             xy = _predict_location(heatmap)
             if xy is None:
                 continue
