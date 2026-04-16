@@ -30,8 +30,7 @@ class _FakeResult:
     metrics_path: Path
     report_json_path: Path | None
     report_md_path: Path | None
-    court_diagram_path: Path | None
-    heatmap_path: Path | None
+    court_gif_path: Path | None
 
 
 def _make_video(isolated_data: Path, stem: str = "match") -> Path:
@@ -63,11 +62,10 @@ def test_report_cmd_metrics_only_happy_path(
             metrics_path=isolated_data / "reports" / video_path_arg.stem / "metrics.json",
             report_json_path=None,
             report_md_path=None,
-            court_diagram_path=isolated_data
+            court_gif_path=isolated_data
             / "viz"
             / video_path_arg.stem
-            / "court_diagram.gif",
-            heatmap_path=isolated_data / "viz" / video_path_arg.stem / "heatmap.png",
+            / "viz_court.gif",
         )
 
     monkeypatch.setattr("rallylens.pipeline.run_report_pipeline", fake_run)
@@ -76,7 +74,6 @@ def test_report_cmd_metrics_only_happy_path(
     assert result.exit_code == 0, result.output
     assert "metrics:" in result.output
     assert "gif:" in result.output
-    assert "heatmap:" in result.output
     assert "report:" not in result.output
     assert captured["kwargs"]["metrics_only"] is True
     assert captured["kwargs"]["skip_viz"] is False
@@ -97,8 +94,7 @@ def test_report_cmd_skip_viz(
             metrics_path=isolated_data / "reports" / video_path_arg.stem / "metrics.json",
             report_json_path=None,
             report_md_path=None,
-            court_diagram_path=None,
-            heatmap_path=None,
+            court_gif_path=None,
         )
 
     monkeypatch.setattr("rallylens.pipeline.run_report_pipeline", fake_run)
@@ -109,7 +105,6 @@ def test_report_cmd_skip_viz(
     assert result.exit_code == 0, result.output
     assert captured["kwargs"]["skip_viz"] is True
     assert "gif:" not in result.output
-    assert "heatmap:" not in result.output
 
 
 def test_report_cmd_full_report_happy_path(
@@ -126,8 +121,7 @@ def test_report_cmd_full_report_happy_path(
             metrics_path=isolated_data / "reports" / video_id / "metrics.json",
             report_json_path=isolated_data / "reports" / video_id / "report.json",
             report_md_path=isolated_data / "reports" / video_id / "report.md",
-            court_diagram_path=isolated_data / "viz" / video_id / "court_diagram.gif",
-            heatmap_path=isolated_data / "viz" / video_id / "heatmap.png",
+            court_gif_path=isolated_data / "viz" / video_id / "viz_court.gif",
         )
 
     monkeypatch.setattr("rallylens.pipeline.run_report_pipeline", fake_run)
@@ -136,7 +130,6 @@ def test_report_cmd_full_report_happy_path(
     assert result.exit_code == 0, result.output
     assert "metrics:" in result.output
     assert "gif:" in result.output
-    assert "heatmap:" in result.output
     assert "report:" in result.output
 
 

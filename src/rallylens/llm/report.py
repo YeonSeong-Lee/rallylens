@@ -98,8 +98,7 @@ def render_report_markdown(
     *,
     model: str,
     md_path: Path,
-    court_diagram_path: Path | None,
-    heatmap_path: Path | None,
+    court_gif_path: Path | None,
 ) -> str:
     """Compose the final `report.md` deterministically from report + metrics."""
     sections: list[str] = [
@@ -108,13 +107,9 @@ def render_report_markdown(
         _section("## 경기 요약", [report.summary_ko]),
         _section("## 핵심 관찰", _bullet_list(report.key_observations_ko)),
     ]
-    if court_diagram_path is not None:
+    if court_gif_path is not None:
         sections.append(_image_section(
-            "## 코트 이동 다이어그램", "코트 이동 다이어그램", md_path, court_diagram_path,
-        ))
-    if heatmap_path is not None:
-        sections.append(_image_section(
-            "## 히트맵", "선수·셔틀 히트맵", md_path, heatmap_path,
+            "## 코트 이동 다이어그램", "코트 이동 다이어그램", md_path, court_gif_path,
         ))
     sections.append(_player_analysis_section(report, metrics))
     sections.append(_section("## 전술 제안", _bullet_list(report.tactical_suggestions_ko)))

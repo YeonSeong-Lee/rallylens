@@ -11,7 +11,7 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini 기반의 one-command
 
 | Heatmap | Court trajectory |
 |---|---|
-| ![heatmap](outputs/demo/heatmap.png) | ![court](outputs/demo/court_diagram.gif) |
+| ![heatmap](outputs/demo/heatmap.png) | ![court](outputs/demo/viz_court.gif) |
 
 선수 위치 히트맵(좌)과 코트 탑뷰 궤적 애니메이션(우). 17초 분량 싱글스 랠리 기준. 동일한 아티팩트 위에서 `rallylens report` 가 한국어 랠리 분석 보고서를 생성하고, 위 GIF·히트맵을 상대 경로로 임베드합니다.
 
@@ -52,7 +52,7 @@ uv run rallylens detect-shuttle data/raw/<video_id>.mp4
 # 3. 코트 캘리브레이션
 uv run rallylens calibrate data/raw/<video_id>.mp4
 
-# 4. 시각화 (overlay MP4 + heatmap PNG + court GIF)
+# 4. 시각화 (overlay MP4 + court GIF)
 uv run rallylens viz data/raw/<video_id>.mp4
 
 # 5. 한국어 랠리 분석 보고서 (Vertex AI Gemini)
@@ -117,7 +117,7 @@ uv run rallylens calibrate <video_path> [--samples 20] [--interactive]
 ### `viz` — 시각화
 
 ```bash
-uv run rallylens viz <video_path> [--overlay] [--heatmap] [--court] \
+uv run rallylens viz <video_path> [--overlay] [--court] \
     [--trail-len 30] [--court-stride 5] [--court-scale 0.5]
 ```
 
@@ -126,13 +126,12 @@ uv run rallylens viz <video_path> [--overlay] [--heatmap] [--court] \
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
 | `--overlay / --no-overlay` | `on` | 선수·셔틀콕 오버레이 MP4 |
-| `--heatmap / --no-heatmap` | `on` | 위치 히트맵 PNG |
-| `--court / --no-court` | `on` | 코트 탑뷰 궤적 GIF |
+| `--court / --no-court` | `on` | 코트 탑뷰 궤적 GIF (히트맵 배경 포함) |
 | `--trail-len` | `30` | 셔틀콕 잔상 길이(프레임) |
 | `--court-stride` | `5` | 코트 GIF에 포함할 프레임 간격 |
 | `--court-scale` | `0.5` | 코트 GIF 다운스케일 비율 |
 
-출력: `data/viz/<video_id>/{<video_id>_overlay.mp4, heatmap.png, court_diagram.gif}`
+출력: `data/viz/<video_id>/{<video_id>_overlay.mp4, viz_court.gif}`
 
 ### `report` — Vertex AI 기반 랠리 분석 보고서 (Korean)
 
@@ -154,7 +153,7 @@ uv run rallylens report <video_path> [--model gemini-2.5-flash] [--temperature 0
 
 파이프라인 흐름:
 1. `detections` + `shuttle_track` + `corners` 를 로드해 결정론적 `MatchMetrics` 계산 (이동 거리, 평균·최대 속도, 코트 커버리지, 전/중/후·좌/중/우 존 분포, 샷 수, 랠리 수, 셔틀 속도 등).
-2. `court_diagram.gif` 와 `heatmap.png` 가 없으면 자동으로 렌더(없어도 계속 진행).
+2. `viz_court.gif` 가 없으면 자동으로 렌더(없어도 계속 진행).
 3. Gemini 2.5 Flash 를 구조화 출력(`response_schema=ReportOutput`, thinking 비활성)으로 호출해 `headline / summary / key_observations / player_analysis / tactical_suggestions` 를 작성.
 4. `report.md` 를 f-string 템플릿으로 결정론적 렌더 — 수치는 `MatchMetrics` 에서 직접 인용(환각 방지), LLM 은 산문만 담당, GIF·히트맵은 상대 경로로 임베드.
 
@@ -167,7 +166,7 @@ data/reports/<video_id>/
 └── report.md        # 렌더된 마크다운 보고서 — GitHub·VS Code·Obsidian에서 GIF 재생
 ```
 
-필요 시 `data/viz/<video_id>/{court_diagram.gif, heatmap.png}` 도 함께 생성됩니다.
+필요 시 `data/viz/<video_id>/viz_court.gif` 도 함께 생성됩니다.
 
 ### `run` — end-to-end 파이프라인
 
@@ -194,8 +193,7 @@ data/
 ├── viz/
 │   └── <video_id>/
 │       ├── <video_id>_overlay.mp4
-│       ├── heatmap.png
-│       └── court_diagram.gif
+│       └── viz_court.gif
 └── reports/
     └── <video_id>/
         ├── metrics.json       # 결정론적 매치 메트릭
@@ -235,8 +233,7 @@ src/rallylens/
 │   └── report.py       ← generate_report + render_report_markdown
 ├── viz/                ← 아티팩트 렌더링 전용. 모델 추론 없음.
 │   ├── overlay.py      ← 비디오 오버레이 MP4
-│   ├── heatmap.py      ← 히트맵 PNG
-│   └── court_diagram.py ← 탑뷰 궤적 GIF
+│   └── viz_court.py ← 탑뷰 궤적 GIF (히트맵 배경 포함)
 ├── ingest/             ← yt-dlp 래퍼 (캐시 포함)
 ├── domain/             ← VideoProperties 등 도메인 모델
 ├── common.py           ← 로거, .env 로더, ffmpeg 체크, video I/O 컨텍스트 매니저
@@ -264,8 +261,7 @@ cli → pipeline → { vision, analysis, llm, viz, ingest }
 detections.jsonl  ┐
 shuttle.jsonl     ┼→ analysis.compute_match_metrics ─→ metrics.json
 corners.json      ┘                  │
-                                     ├──→ viz.render_court_diagram ─→ court_diagram.gif
-                                     ├──→ viz.render_heatmap       ─→ heatmap.png
+                                     ├──→ viz.render_viz_court ─→ viz_court.gif
                                      └──→ llm.generate_report ──→ ReportOutput ─→ report.json
                                                                          │
                                                                          ▼
@@ -280,7 +276,7 @@ corners.json      ┘                  │
 1. **결정론 ↔ LLM 분리**: 수치는 파이썬이 계산, Gemini 는 해석과 코칭 제안만 작성합니다. 원본 detection 을 프롬프트에 담지 않기 때문에 토큰 비용은 입력 크기와 무관하게 상수이며, 숫자 환각 위험이 사라집니다.
 2. **Pydantic 구조화 출력**: `response_schema=ReportOutput` 으로 Gemini 가 스키마를 강제 준수. `thinking_budget=0` 으로 thinking 을 비활성화해 지연·비용을 절감합니다.
 3. **Markdown 은 결정론적 템플릿**: `render_report_markdown` 은 LLM 을 두 번 호출하지 않습니다. 수치는 `MatchMetrics` 에서 직접 인용하고, GIF·히트맵은 `os.path.relpath` 로 `report.md` 에 상대 경로로 임베드됩니다.
-4. **Viz 자동 렌더**: `court_diagram.gif` / `heatmap.png` 가 없으면 `run_report_pipeline` 이 즉석에서 렌더합니다. 렌더 실패는 경고 로그만 남기고 보고서 작성은 계속됩니다.
+4. **Viz 자동 렌더**: `viz_court.gif` 가 없으면 `run_report_pipeline` 이 즉석에서 렌더합니다 (히트맵은 GIF 배경에 포함). 렌더 실패는 경고 로그만 남기고 보고서 작성은 계속됩니다.
 5. **`--metrics-only` 이스케이프 해치**: Gemini 호출과 인증을 건너뛰고 `metrics.json` 만 생성. CI·로컬 튜닝에서 비용 없이 파이프라인을 돌릴 수 있습니다.
 
 추가 규약(코딩 컨벤션, mypy 설정, 새 레이어 추가 시 주의점)은 [`CLAUDE.md`](CLAUDE.md) 를 참조하세요.

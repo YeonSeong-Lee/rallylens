@@ -38,10 +38,10 @@ _MAX_DISPLAY_PLAYERS: Final[int] = 2
 _LABEL_OFFSET_PX: Final[int] = 4
 _PLAYER_LABEL_FONT_SCALE: Final[float] = 0.6
 
-__all__ = ["render_court_diagram"]
+__all__ = ["render_viz_court"]
 
 
-def render_court_diagram(
+def render_viz_court(
     detections: list[Detection],
     shuttle_track: list[ShuttlePoint],
     corners: CourtCorners,

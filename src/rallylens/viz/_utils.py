@@ -1,8 +1,7 @@
 """Internal shared helpers for the viz package.
 
 Court diagram constants, homography computation, and foot-position extraction
-are centralised here so overlay.py, court_diagram.py, and heatmap.py all stay
-thin.
+are centralised here so overlay.py and viz_court.py stay thin.
 """
 
 # TODO: promote court geometry (COURT_W/H, MARGIN, _NET_Y, compute_homography,

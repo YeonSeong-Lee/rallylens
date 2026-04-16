@@ -1,9 +1,9 @@
 """Orchestration for the `rallylens report` pipeline.
 
 Loads the three CV artifacts (player detections, shuttle track, court
-corners), computes deterministic match metrics, optionally renders viz
-artifacts (court diagram GIF + heatmap PNG) so the report can embed them,
-then calls the Vertex AI report generator and writes the outputs.
+corners), computes deterministic match metrics, optionally renders the
+court diagram GIF so the report can embed it, then calls the Vertex AI
+report generator and writes the outputs.
 
 The Vertex AI SDK is imported lazily to keep `rallylens --help` and
 non-report subcommands free of `google.genai` loading cost.
@@ -25,10 +25,9 @@ from rallylens.pipeline.io import (
     report_markdown_path,
     save_match_metrics,
     save_report,
-    viz_court_diagram_path,
-    viz_heatmap_path,
+    viz_court_path,
 )
-from rallylens.viz import render_court_diagram, render_heatmap
+from rallylens.viz import render_viz_court
 
 _log = get_logger(__name__)
 
@@ -47,8 +46,7 @@ class ReportResult:
     metrics_path: Path
     report_json_path: Path | None
     report_md_path: Path | None
-    court_diagram_path: Path | None
-    heatmap_path: Path | None
+    court_gif_path: Path | None
 
 
 def run_report_pipeline(
@@ -90,19 +88,13 @@ def run_report_pipeline(
     _log.info("wrote metrics: %s", m_path)
 
     gif_path: Path | None = None
-    heatmap_path_result: Path | None = None
     if not skip_viz:
         gif_path = _ensure_artifact(
             "court diagram",
-            viz_court_diagram_path(video_id),
-            lambda path: render_court_diagram(
+            viz_court_path(video_id),
+            lambda path: render_viz_court(
                 detections, shuttle_track, corners, path, fps=props.fps
             ),
-        )
-        heatmap_path_result = _ensure_artifact(
-            "heatmap",
-            viz_heatmap_path(video_id),
-            lambda path: render_heatmap(detections, shuttle_track, corners, path),
         )
 
     if metrics_only:
@@ -111,8 +103,7 @@ def run_report_pipeline(
             metrics_path=m_path,
             report_json_path=None,
             report_md_path=None,
-            court_diagram_path=gif_path,
-            heatmap_path=heatmap_path_result,
+            court_gif_path=gif_path,
         )
 
     generate_report, render_report_markdown = _load_llm()
@@ -127,8 +118,7 @@ def run_report_pipeline(
         metrics,
         model=model,
         md_path=md_path,
-        court_diagram_path=gif_path,
-        heatmap_path=heatmap_path_result,
+        court_gif_path=gif_path,
     )
     md_path.write_text(md, encoding="utf-8")
     _log.info("wrote report: %s and %s", r_json_path, md_path)
@@ -138,8 +128,7 @@ def run_report_pipeline(
         metrics_path=m_path,
         report_json_path=r_json_path,
         report_md_path=md_path,
-        court_diagram_path=gif_path,
-        heatmap_path=heatmap_path_result,
+        court_gif_path=gif_path,
     )
 
 

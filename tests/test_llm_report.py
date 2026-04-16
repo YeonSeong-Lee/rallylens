@@ -234,23 +234,19 @@ def test_render_report_markdown_contains_all_sections(tmp_path: Path) -> None:
     report = _make_sample_report()
     metrics = _make_metrics()
     md_path = tmp_path / "reports" / "fixture_clip" / "report.md"
-    gif_path = tmp_path / "viz" / "fixture_clip" / "court_diagram.gif"
-    heatmap_path = tmp_path / "viz" / "fixture_clip" / "heatmap.png"
-
+    gif_path = tmp_path / "viz" / "fixture_clip" / "viz_court.gif"
     md = render_report_markdown(
         report,
         metrics,
         model="gemini-2.5-flash",
         md_path=md_path,
-        court_diagram_path=gif_path,
-        heatmap_path=heatmap_path,
+        court_gif_path=gif_path,
     )
 
     assert "# 랠리 분석 샘플" in md
     assert "## 경기 요약" in md
     assert "## 핵심 관찰" in md
     assert "## 코트 이동 다이어그램" in md
-    assert "## 히트맵" in md
     assert "## 선수별 분석" in md
     assert "## 전술 제안" in md
     assert "생성 모델: `gemini-2.5-flash`" in md
@@ -260,8 +256,7 @@ def test_render_report_markdown_contains_all_sections(tmp_path: Path) -> None:
     assert "9 회" in md  # total hit events
     assert "fixture_clip" in md
     # Images embedded with relative paths (reports/<id>/ → viz/<id>/)
-    assert "../../viz/fixture_clip/court_diagram.gif" in md
-    assert "../../viz/fixture_clip/heatmap.png" in md
+    assert "../../viz/fixture_clip/viz_court.gif" in md
 
 
 def test_render_report_markdown_skips_images_when_paths_are_none(
@@ -276,14 +271,11 @@ def test_render_report_markdown_skips_images_when_paths_are_none(
         metrics,
         model="gemini-2.5-flash",
         md_path=md_path,
-        court_diagram_path=None,
-        heatmap_path=None,
+        court_gif_path=None,
     )
 
     assert "## 코트 이동 다이어그램" not in md
-    assert "## 히트맵" not in md
-    assert "court_diagram.gif" not in md
-    assert "heatmap.png" not in md
+    assert "viz_court.gif" not in md
 
 
 def test_render_report_markdown_handles_missing_player_insight(
@@ -311,8 +303,7 @@ def test_render_report_markdown_handles_missing_player_insight(
         metrics,
         model="gemini-2.5-flash",
         md_path=md_path,
-        court_diagram_path=None,
-        heatmap_path=None,
+        court_gif_path=None,
     )
     assert "### 1번 선수" in md
     assert "### 2번 선수" in md
@@ -346,7 +337,6 @@ def test_integration_with_real_metrics_fixture(tmp_path: Path) -> None:
         metrics,
         model="gemini-2.5-flash",
         md_path=md_path,
-        court_diagram_path=None,
-        heatmap_path=None,
+        court_gif_path=None,
     )
     assert "empty_clip" in md
