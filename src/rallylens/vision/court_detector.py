@@ -13,6 +13,7 @@ Returns CourtCorners or None if detection fails.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from math import cos, pi, sin
 from typing import Final
 
@@ -64,7 +65,7 @@ class CourtCorners(BaseModel):
 _Line = list[list[float]]  # [[x1,y1],[x2,y2]]
 
 
-def _determinant(a: list[float], b: list[float]) -> float:
+def _determinant(a: Sequence[float], b: Sequence[float]) -> float:
     return a[0] * b[1] - a[1] * b[0]
 
 
@@ -231,6 +232,15 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
                 xf_left_line, xf_right_line, yf_top_line, yf_bottom_line]
     if any(seg_line is None for seg_line in required):
         return None
+
+    assert xo_left_line is not None
+    assert xo_right_line is not None
+    assert yo_top_line is not None
+    assert yo_bottom_line is not None
+    assert xf_left_line is not None
+    assert xf_right_line is not None
+    assert yf_top_line is not None
+    assert yf_bottom_line is not None
 
     # Apply a small vertical correction to the top lines (same as TRACE)
     for seg in (yo_top_line, yf_top_line):

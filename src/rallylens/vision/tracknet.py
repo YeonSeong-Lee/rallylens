@@ -28,7 +28,7 @@ class Conv2DBlock(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.relu(self.bn(self.conv(x)))
+        return self.relu(self.bn(self.conv(x)))  # type: ignore[no-any-return]
 
 
 class Double2DConv(nn.Module):
@@ -40,7 +40,7 @@ class Double2DConv(nn.Module):
         self.conv_2 = Conv2DBlock(out_dim, out_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.conv_2(self.conv_1(x))
+        return self.conv_2(self.conv_1(x))  # type: ignore[no-any-return]
 
 
 class Triple2DConv(nn.Module):
@@ -53,7 +53,7 @@ class Triple2DConv(nn.Module):
         self.conv_3 = Conv2DBlock(out_dim, out_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.conv_3(self.conv_2(self.conv_1(x)))
+        return self.conv_3(self.conv_2(self.conv_1(x)))  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ class TrackNet(nn.Module):
         x = self.up_block_2(torch.cat([self._up(x), x2], dim=1))   # (N, 128, 144, 256)
         x = self.up_block_3(torch.cat([self._up(x), x1], dim=1))   # (N,  64, 288, 512)
 
-        return self.sigmoid(self.predictor(x))  # (N, out_dim, 288, 512)
+        return self.sigmoid(self.predictor(x))  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +117,7 @@ class Conv1DBlock(nn.Module):
         self.relu = nn.LeakyReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.relu(self.conv(x))
+        return self.relu(self.conv(x))  # type: ignore[no-any-return]
 
 
 class Double1DConv(nn.Module):
@@ -128,7 +128,7 @@ class Double1DConv(nn.Module):
         self.block = nn.Sequential(Conv1DBlock(in_dim, out_dim), Conv1DBlock(out_dim, out_dim))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.block(x)
+        return self.block(x)  # type: ignore[no-any-return]
 
 
 class InpaintNet(nn.Module):
@@ -173,5 +173,5 @@ class InpaintNet(nn.Module):
         s = self.up_2(torch.cat([s, s2], dim=1))  # (N,  64, L)
         s = self.up_3(torch.cat([s, s1], dim=1))  # (N,  32, L)
 
-        out = self.sigmoid(self.predictor(s))  # (N, 2, L)
-        return out.permute(0, 2, 1)            # (N, L, 2)
+        out: torch.Tensor = self.sigmoid(self.predictor(s))  # (N, 2, L)
+        return out.permute(0, 2, 1)                         # (N, L, 2)

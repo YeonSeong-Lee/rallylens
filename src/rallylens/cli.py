@@ -175,7 +175,7 @@ def run_cmd(url_or_path: str, tracker: str, singles: bool, imgsz: int) -> None:
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
     "--model",
-    default="gemini-2.5-flash",
+    default="gemini-2.5-pro",
     show_default=True,
     help="Vertex AI Gemini model ID.",
 )

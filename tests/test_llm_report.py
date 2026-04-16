@@ -101,9 +101,6 @@ def _make_metrics() -> MatchMetrics:
         ],
         shuttle=ShuttleMetrics(
             total_hit_events=9,
-            rally_count=2,
-            longest_rally_shots=6,
-            avg_rally_shots=4.5,
             avg_inter_hit_seconds=0.8,
             avg_shuttle_speed_mps=11.2,
             max_shuttle_speed_mps=18.3,
@@ -238,7 +235,7 @@ def test_render_report_markdown_contains_all_sections(tmp_path: Path) -> None:
     md = render_report_markdown(
         report,
         metrics,
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         md_path=md_path,
         court_gif_path=gif_path,
     )
@@ -249,7 +246,7 @@ def test_render_report_markdown_contains_all_sections(tmp_path: Path) -> None:
     assert "## 코트 이동 다이어그램" in md
     assert "## 선수별 분석" in md
     assert "## 전술 제안" in md
-    assert "생성 모델: `gemini-2.5-flash`" in md
+    assert "생성 모델: `gemini-2.5-pro`" in md
 
     # Metrics numbers stitched into tables (not hallucinated by LLM)
     assert "34.50 m" in md or "34.5" in md  # player 1 distance (table uses .2f)
@@ -269,7 +266,7 @@ def test_render_report_markdown_skips_images_when_paths_are_none(
     md = render_report_markdown(
         report,
         metrics,
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         md_path=md_path,
         court_gif_path=None,
     )
@@ -301,7 +298,7 @@ def test_render_report_markdown_handles_missing_player_insight(
     md = render_report_markdown(
         partial_report,
         metrics,
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         md_path=md_path,
         court_gif_path=None,
     )
@@ -335,7 +332,7 @@ def test_integration_with_real_metrics_fixture(tmp_path: Path) -> None:
     md = render_report_markdown(
         report,
         metrics,
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         md_path=md_path,
         court_gif_path=None,
     )

@@ -16,8 +16,9 @@ ESC / Q        — cancel (returns None)
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Any, Final
 
 import cv2
 import numpy as np
@@ -152,7 +153,7 @@ def _make_mouse_callback(
     initial_corners: CourtCorners | None,
     scale: float,
     window_name: str,
-) -> object:
+) -> Callable[[int, int, int, int, Any | None], None]:
     def _callback(event: int, x: int, y: int, _flags: int, _param: object) -> None:
         if event != cv2.EVENT_LBUTTONDOWN:
             return

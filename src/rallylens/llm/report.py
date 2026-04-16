@@ -30,7 +30,7 @@ from rallylens.llm.vertex_client import create_vertex_client
 
 _log = get_logger(__name__)
 
-DEFAULT_MODEL: Final[str] = "gemini-2.5-flash"
+DEFAULT_MODEL: Final[str] = "gemini-2.5-pro"
 DEFAULT_TEMPERATURE: Final[float] = 0.4
 DEFAULT_MAX_OUTPUT_TOKENS: Final[int] = 4096
 
@@ -158,8 +158,6 @@ def _summary_table(metrics: MatchMetrics) -> str:
         f"| 길이 | {metrics.duration_seconds:.1f} 초 ({metrics.frame_count} 프레임) |\n"
         f"| FPS | {metrics.fps:.1f} |\n"
         f"| 총 접촉 추정 | {metrics.shuttle.total_hit_events} 회 |\n"
-        f"| 추정 랠리 수 | {metrics.shuttle.rally_count} |\n"
-        f"| 가장 긴 랠리 | {metrics.shuttle.longest_rally_shots} 샷 |\n"
         f"| 평균 셔틀 속도 | {metrics.shuttle.avg_shuttle_speed_mps:.2f} m/s |"
     )
 

@@ -43,10 +43,6 @@ _COURT_RIGHT_X: Final[int] = MARGIN + COURT_W
 _COURT_TOP_Y: Final[int] = MARGIN
 _COURT_BOTTOM_Y: Final[int] = MARGIN + COURT_H
 
-# Rally boundary: a gap between consecutive hits exceeding this many seconds
-# starts a new rally. Badminton rallies rarely have >2 s mid-play pauses.
-_RALLY_GAP_SECONDS: Final[float] = 2.0
-
 # Court-diagram space: 1 px = 1 cm
 _PX_PER_M: Final[float] = 100.0
 _PX2_PER_M2: Final[float] = 10_000.0
@@ -83,9 +79,6 @@ class ShuttleMetrics(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     total_hit_events: int
-    rally_count: int
-    longest_rally_shots: int
-    avg_rally_shots: float
     avg_inter_hit_seconds: float
     avg_shuttle_speed_mps: float
     max_shuttle_speed_mps: float
@@ -148,9 +141,6 @@ def compute_match_metrics(
 def _empty_shuttle_metrics() -> ShuttleMetrics:
     return ShuttleMetrics(
         total_hit_events=0,
-        rally_count=0,
-        longest_rally_shots=0,
-        avg_rally_shots=0.0,
         avg_inter_hit_seconds=0.0,
         avg_shuttle_speed_mps=0.0,
         max_shuttle_speed_mps=0.0,
@@ -328,7 +318,6 @@ def _compute_shuttle_metrics(
         return _empty_shuttle_metrics()
 
     hits_sorted = sorted(hits, key=lambda h: h.frame_idx)
-    rallies = _segment_rallies(hits_sorted, fps)
 
     intervals_s: list[float] = []
     speeds_mps: list[float] = []
@@ -346,25 +335,9 @@ def _compute_shuttle_metrics(
 
     return ShuttleMetrics(
         total_hit_events=total,
-        rally_count=len(rallies),
-        longest_rally_shots=max(rallies),
-        avg_rally_shots=sum(rallies) / len(rallies),
         avg_inter_hit_seconds=sum(intervals_s) / len(intervals_s) if intervals_s else 0.0,
         avg_shuttle_speed_mps=avg_shuttle_speed_mps,
         max_shuttle_speed_mps=max_shuttle_speed_mps,
     )
 
 
-def _segment_rallies(hits_sorted: list[HitEvent], fps: float) -> list[int]:
-    """Return a list of rally shot counts, splitting on inter-hit gaps."""
-    gap_threshold_frames = _RALLY_GAP_SECONDS * fps if fps > 0 else math.inf
-    rallies: list[int] = []
-    current = 1
-    for h0, h1 in zip(hits_sorted, hits_sorted[1:], strict=False):
-        if h1.frame_idx - h0.frame_idx > gap_threshold_frames:
-            rallies.append(current)
-            current = 1
-        else:
-            current += 1
-    rallies.append(current)
-    return rallies

@@ -84,7 +84,6 @@ def test_empty_detections_returns_empty_bundle() -> None:
     assert result.video_id == _VIDEO_ID
     assert result.players == []
     assert result.shuttle.total_hit_events == 0
-    assert result.shuttle.rally_count == 0
     assert result.duration_seconds == pytest.approx(10.0)  # 300 / 30
 
 
@@ -191,15 +190,14 @@ def test_triangle_motion_gives_positive_convex_hull_area() -> None:
     assert p.convex_hull_area_m2 == pytest.approx(0.5, abs=1e-6)
 
 
-def test_hit_events_produce_shot_counts_and_rally_count() -> None:
+def test_hit_events_produce_shot_counts() -> None:
     # Player 1 (track 1) stays in near half front-left, wrist at (170, 750).
     # Player 2 (track 2) stays in far half back-right, wrist at (570, 100).
-    # Shuttle appears near each wrist in turn, alternating 4 times within
-    # 1 second to stay in a single rally (gap < 2s).
+    # Shuttle appears near each wrist in turn, alternating 4 times.
     detections: list[Detection] = []
     shuttle: list[ShuttlePoint] = []
 
-    hit_frames = [0, 6, 12, 18]  # 4 contacts within 18/30 = 0.6 s
+    hit_frames = [0, 6, 12, 18]
     for frame in range(20):
         detections.append(
             _make_detection(
@@ -234,44 +232,10 @@ def test_hit_events_produce_shot_counts_and_rally_count() -> None:
         video_id=_VIDEO_ID,
     )
     assert result.shuttle.total_hit_events == 4
-    assert result.shuttle.rally_count == 1
-    assert result.shuttle.longest_rally_shots == 4
-    assert result.shuttle.avg_rally_shots == pytest.approx(4.0)
 
     players_by_id = {p.track_id: p for p in result.players}
     assert players_by_id[1].shot_count == 2
     assert players_by_id[2].shot_count == 2
-
-
-def test_rally_segmentation_splits_on_large_gap() -> None:
-    # Two bursts of hits separated by > 2 seconds (> 60 frames @ 30 fps).
-    detections: list[Detection] = []
-    shuttle: list[ShuttlePoint] = []
-    # Player 1 present on every hit frame
-    hit_frames = [0, 6, 12, 100, 106, 112]  # gap 100-12 = 88 frames > 60
-    for frame in hit_frames:
-        detections.append(
-            _make_detection(
-                frame,
-                track_id=1,
-                ankle_xy=(150.0, 800.0),
-                nose_xy=(150.0, 700.0),
-                l_wrist_xy=(170.0, 750.0),
-            )
-        )
-        shuttle.append(ShuttlePoint(frame_idx=frame, x=170, y=750))
-
-    result = compute_match_metrics(
-        detections=detections,
-        shuttle_track=shuttle,
-        corners=_IDENTITY_CORNERS,
-        video_props=_VIDEO_PROPS,
-        video_id=_VIDEO_ID,
-    )
-    assert result.shuttle.total_hit_events == 6
-    assert result.shuttle.rally_count == 2
-    assert result.shuttle.longest_rally_shots == 3
-    assert result.shuttle.avg_rally_shots == pytest.approx(3.0)
 
 
 def test_metrics_schema_is_stable() -> None:

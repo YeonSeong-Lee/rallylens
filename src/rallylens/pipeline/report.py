@@ -52,7 +52,7 @@ class ReportResult:
 def run_report_pipeline(
     video_path: Path,
     *,
-    model: str = "gemini-2.5-flash",
+    model: str = "gemini-2.5-pro",
     temperature: float = 0.4,
     metrics_only: bool = False,
     skip_viz: bool = False,
