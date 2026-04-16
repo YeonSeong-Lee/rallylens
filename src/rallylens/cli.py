@@ -162,13 +162,17 @@ def calibrate_cmd(video_path: Path, samples: int, interactive: bool) -> None:
     help="YOLO inference image size.",
 )
 def run_cmd(url_or_path: str, tracker: str, singles: bool, imgsz: int) -> None:
-    """Download (or use local file) and run player tracking on a full match video."""
+    """Download (or use local file) and run full pipeline with visualization."""
     tracker_arg = coerce_tracker_name(None if tracker == "none" else tracker)
     try:
         result = run_full_pipeline(url_or_path, tracker=tracker_arg, singles=singles, imgsz=imgsz)
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from exc
-    click.echo(f"detections saved for {result.video_id}: {result.detections_path}")
+    click.echo(f"detections: {result.detections_path}")
+    if result.overlay_path is not None:
+        click.echo(f"overlay:    {result.overlay_path}")
+    if result.court_path is not None:
+        click.echo(f"court:      {result.court_path}")
 
 
 @cli.command("report")

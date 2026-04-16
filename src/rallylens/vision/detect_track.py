@@ -122,8 +122,11 @@ def detect_and_track_players(
     detections: list[Detection] = []
     frames_seen = 0
     warned_missing_ids = False
+    log_interval = 500
     for frame_idx, result in enumerate(results):
         frames_seen = frame_idx + 1
+        if frames_seen % log_interval == 0:
+            _log.info("processed %d frames (%d detections so far)", frames_seen, len(detections))
         boxes = result.boxes
         kps = result.keypoints
         if boxes is None or len(boxes) == 0:
@@ -135,14 +138,16 @@ def detect_and_track_players(
             ids = boxes.id.cpu().numpy().astype(int).tolist()
         else:
             ids = None
-            if tracker_cfg is not None and not warned_missing_ids:
-                _log.warning(
-                    "tracker=%s requested but boxes.id is None on frame %d — "
-                    "track IDs unavailable; singles post-processing will fail silently",
-                    tracker_cfg,
-                    frame_idx,
-                )
-                warned_missing_ids = True
+            if tracker_cfg is not None:
+                if not warned_missing_ids:
+                    _log.warning(
+                        "tracker=%s requested but boxes.id is None on frame %d — "
+                        "skipping frame",
+                        tracker_cfg,
+                        frame_idx,
+                    )
+                    warned_missing_ids = True
+                continue
 
         if kps is not None and kps.xy is not None:
             kp_xy = kps.xy.cpu().numpy()
