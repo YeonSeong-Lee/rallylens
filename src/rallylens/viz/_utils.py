@@ -345,9 +345,8 @@ def extract_hit_events(
             radius = hit_radius_factor * body_len
             if wrist_dist >= radius:
                 continue
-            ball_proj = project_point(H, ball_xy[0], ball_xy[1])
             foot_proj = project_point(H, foot[0], foot[1])
-            event_pt = (ball_proj[0], foot_proj[1])
+            event_pt = foot_proj
             if best is None or wrist_dist < best[0]:
                 best = (wrist_dist, event_pt, det.track_id)
         if best is not None:
