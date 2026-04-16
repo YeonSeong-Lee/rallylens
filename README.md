@@ -266,8 +266,10 @@ src/rallylens/
 │   └── report.py       ← run_report_pipeline (metrics + viz + Gemini)
 ├── vision/             ← CV 추론 전용. 이 레이어만 ultralytics·cv2 직접 import.
 │   ├── detect_track.py ← YOLO11-pose + ByteTrack → Detection
-│   ├── shuttle_tracker.py ← TrackNetV3 → ShuttlePoint, HitEvent
-│   └── court_detector.py  ← Hough → CourtCorners
+│   ├── tracknet.py        ← TrackNetV3 모델 정의
+│   ├── shuttle_tracker.py ← TrackNetV3 추론 → ShuttlePoint, HitEvent
+│   ├── court_detector.py  ← Hough → CourtCorners
+│   └── court_picker.py   ← OpenCV 인터랙티브 코너 선택
 ├── analysis/           ← 결정론적 매치 메트릭 (LLM 없음).
 │   └── metrics.py      ← compute_match_metrics → MatchMetrics
 ├── llm/                ← Vertex AI Gemini 래퍼. 이 레이어만 google.genai 직접 import.
@@ -276,8 +278,9 @@ src/rallylens/
 │   ├── prompt.py       ← SYSTEM_PROMPT_KO
 │   └── report.py       ← generate_report + render_report_markdown
 ├── viz/                ← 아티팩트 렌더링 전용. 모델 추론 없음.
+│   ├── _utils.py       ← 코트 다이어그램, 호모그래피, 트레일 등 공용 헬퍼
 │   ├── overlay.py      ← 비디오 오버레이 MP4 (탑뷰 PIP 합성 포함)
-│   └── viz_court.py ← 탑뷰 궤적 GIF (히트맵 배경 포함)
+│   └── viz_court.py    ← 탑뷰 궤적 GIF (히트맵 배경 포함)
 ├── ingest/             ← yt-dlp 래퍼 (캐시 포함)
 ├── domain/             ← VideoProperties 등 도메인 모델
 ├── common.py           ← 로거, .env 로더, ffmpeg 체크, video I/O 컨텍스트 매니저
