@@ -35,16 +35,6 @@ YOLO11-pose · ByteTrack · TrackNetV3 · Vertex AI Gemini
   </tr>
 </table>
 
-<details>
-<summary><strong>코트 다이어그램 상세 보기</strong> — 3-panel court diagram</summary>
-<br>
-
-![코트 다이어그램](outputs/demo/court_diagram.png)
-
-*왼쪽: 1번 선수 궤적 / 가운데: 2번 선수 궤적 / 오른쪽: 셔틀콕 궤적*
-
-</details>
-
 ### LLM 랠리 분석 보고서
 
 [전체 보고서 보기 →](outputs/demo/report_demo.md)
